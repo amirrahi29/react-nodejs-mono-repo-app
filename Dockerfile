@@ -1,5 +1,4 @@
-# Monorepo: build CRA web + run Node API (production serves SPA + API on one port)
-FROM node:20-alpine AS web-build
+FROM node:22-alpine AS web-build
 WORKDIR /app
 COPY package.json package-lock.json turbo.json ./
 COPY apps/web/package.json apps/web/
@@ -8,7 +7,7 @@ RUN npm ci
 COPY apps/web ./apps/web
 RUN npm run build -w @repo/web
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080

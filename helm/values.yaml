@@ -1,9 +1,9 @@
 replicaCount: 2
 
 image:
-  repository: chatregistryapp.azurecr.io/deployment-app
+  repository: chatregistryapp.azurecr.io/chat-app
   pullPolicy: IfNotPresent
-  tag: "dev-latest"
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""

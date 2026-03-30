@@ -1,9 +1,10 @@
-# Secrets: AZURE_CREDENTIALS | Optional OIDC: id-token write + swap azure/login inputs per Azure docs
-name: CD — AKS
+# Multi-env: branch = namespace = values file (dev / staging / uat)
+# Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
+name: Build, Push & Deploy to AKS
 
 on:
   push:
-    branches: [main, dev, staging, uat]
+    branches: [dev, staging, uat]
   workflow_dispatch:
     inputs:
       operation:
@@ -29,11 +30,11 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ACR_NAME: chatregistryapp
-  IMAGE_NAME: deployment-app
+  IMAGE_NAME: chat-app
   AKS_CLUSTER_NAME: ChatAppCluster
   AKS_RESOURCE_GROUP: ChatResourceGroup
   HELM_VERSION: v3.14.4
-  HELM_RELEASE: deployment-app
+  HELM_RELEASE: chat-app
   HELM_CHART_PATH: ./helm
 
 jobs:

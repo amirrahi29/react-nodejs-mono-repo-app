@@ -1,6 +1,6 @@
 apiVersion: v2
-name: deployment-app
-description: Monorepo (React + Express) — AKS + Helm + GitHub Actions
+name: chat-app
+description: Web + API (Node) for AKS
 type: application
 version: 0.1.0
 appVersion: "1.0.0"

@@ -1,8 +1,8 @@
-{{- define "deployment-app.name" -}}
+{{- define "chat-app.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "deployment-app.fullname" -}}
+{{- define "chat-app.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -15,20 +15,20 @@
 {{- end }}
 {{- end }}
 
-{{- define "deployment-app.chart" -}}
+{{- define "chat-app.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "deployment-app.labels" -}}
-helm.sh/chart: {{ include "deployment-app.chart" . }}
-{{ include "deployment-app.selectorLabels" . }}
+{{- define "chat-app.labels" -}}
+helm.sh/chart: {{ include "chat-app.chart" . }}
+{{ include "chat-app.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{- define "deployment-app.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "deployment-app.name" . }}
+{{- define "chat-app.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "chat-app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

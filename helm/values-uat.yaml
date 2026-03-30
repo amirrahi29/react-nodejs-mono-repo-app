@@ -1,3 +1,5 @@
+replicaCount: 2
+
 service:
   type: LoadBalancer
 
@@ -8,5 +10,5 @@ ingress:
 
 autoscaling:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 3
+  minReplicas: 2
+  maxReplicas: 4

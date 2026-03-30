@@ -1,3 +1,13 @@
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 250m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
 service:
   type: LoadBalancer
 
@@ -9,4 +19,4 @@ ingress:
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 2
