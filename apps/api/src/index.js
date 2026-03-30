@@ -10,10 +10,17 @@ const { loadAppSecrets, getAppSecrets } = require("./keyvault");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
+const isProd = process.env.NODE_ENV === "production";
+const webBuildDir = path.join(__dirname, "..", "..", "web", "build");
 
-app.get("/", (_req, res) => res.send("OK"));
+/** Backend routes — hamesha `/api` ke under (prod / Ingress / CDN split ke liye sahi pattern). */
+const api = express.Router();
 
-app.get("/secret", (_req, res) => {
+api.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
+api.get("/secret", (_req, res) => {
   try {
     const data = getAppSecrets();
     res.json(data);
@@ -22,8 +29,29 @@ app.get("/secret", (_req, res) => {
   }
 });
 
+app.use("/api", api);
+
+if (isProd) {
+  app.use(express.static(webBuildDir));
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    if (req.method !== "GET") {
+      return res.status(404).json({ error: "Not found" });
+    }
+    res.sendFile(path.join(webBuildDir, "index.html"), (err) => (err ? next(err) : undefined));
+  });
+} else {
+  app.get("/", (_req, res) =>
+    res.type("text").send("API: /api/health, /api/secret — web: npm run dev -w @repo/web (proxy /api → this server)"),
+  );
+}
+
 loadAppSecrets()
-  .then(() => app.listen(PORT, () => console.log(`http://localhost:${PORT}`)))
+  .then(() => {
+    app.listen(PORT, () => console.log(`http://localhost:${PORT}`));
+  })
   .catch((err) => {
     console.error(err);
     process.exit(1);

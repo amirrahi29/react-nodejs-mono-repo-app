@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/build
+npm-debug.log
+.git
+.github
+helm
+.env
+.env.*
+!.env.example
+*.md
+.DS_Store
+coverage
+.turbo
+**/.turbo

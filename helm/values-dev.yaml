@@ -1,0 +1,17 @@
+# Dev — same namespace dev; tune host when Ingress enabled
+service:
+  type: LoadBalancer
+
+ingress:
+  enabled: false
+  className: nginx
+  hosts:
+    - host: app-dev.mergeai.in
+      paths:
+        - path: /
+          pathType: Prefix
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
