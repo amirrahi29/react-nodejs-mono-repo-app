@@ -1,34 +1,41 @@
 const path = require("path");
-
-require("dotenv").config({
-  path: path.join(__dirname, "..", ".env"),
-  override: true,
-});
-
 const express = require("express");
-const { loadAppSecrets, getAppSecrets } = require("./keyvault");
+const helmet = require("helmet");
+const { loadAppSecrets, getAppSecrets, credentialsMode } = require("./keyvault");
+const config = require("./config");
 
 const app = express();
-const PORT = Number(process.env.PORT) || 4000;
-const isProd = process.env.NODE_ENV === "production";
-const appEnv =
-  process.env.APP_ENV ||
-  (isProd ? "production" : "local");
-const webBuildDir = path.join(__dirname, "..", "..", "web", "build");
+let secretsReady = false;
+
+app.disable("x-powered-by");
+if (config.isProd) {
+  app.use(helmet({ contentSecurityPolicy: false }));
+}
 
 const api = express.Router();
 
 api.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    env: appEnv,
+    env: config.appEnv,
+    version: config.buildVersion,
+    credentials: credentialsMode(),
   });
 });
 
+api.get("/ready", (_req, res) => {
+  if (!secretsReady) {
+    return res.status(503).json({ ready: false });
+  }
+  res.json({ ready: true });
+});
+
 api.get("/secret", (_req, res) => {
+  if (!secretsReady) {
+    return res.status(503).json({ error: "Secrets not ready" });
+  }
   try {
-    const data = getAppSecrets();
-    res.json(data);
+    res.json(getAppSecrets());
   } catch (e) {
     res.status(503).json({ error: e.message });
   }
@@ -36,8 +43,8 @@ api.get("/secret", (_req, res) => {
 
 app.use("/api", api);
 
-if (isProd) {
-  app.use(express.static(webBuildDir));
+if (config.isProd) {
+  app.use(express.static(config.webBuildDir));
   app.use((req, res, next) => {
     if (req.path.startsWith("/api")) {
       return res.status(404).json({ error: "Not found" });
@@ -45,7 +52,10 @@ if (isProd) {
     if (req.method !== "GET") {
       return res.status(404).json({ error: "Not found" });
     }
-    res.sendFile(path.join(webBuildDir, "index.html"), (err) => (err ? next(err) : undefined));
+    res.sendFile(
+      path.join(config.webBuildDir, "index.html"),
+      (err) => (err ? next(err) : undefined)
+    );
   });
 } else {
   app.get("/", (_req, res) =>
@@ -53,9 +63,29 @@ if (isProd) {
   );
 }
 
+const server = app.listen(config.port, () => {
+  console.log(
+    JSON.stringify({
+      msg: "listening",
+      port: config.port,
+      env: config.appEnv,
+      version: config.buildVersion,
+    })
+  );
+});
+
+function shutdown(signal) {
+  console.log(JSON.stringify({ msg: "shutdown", signal }));
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
 loadAppSecrets()
   .then(() => {
-    app.listen(PORT, () => console.log(`http://localhost:${PORT}`));
+    secretsReady = true;
   })
   .catch((err) => {
     console.error(err);

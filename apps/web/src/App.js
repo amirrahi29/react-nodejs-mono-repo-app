@@ -1,20 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { formatFrontendTitle } from '@repo/env';
 import { fetchHealth, fetchSecret } from './api';
-
-function frontendTitle(health) {
-  if (!health || health.error) return 'Frontend';
-  const e = health.env;
-  if (!e) return 'Frontend';
-  const labels = {
-    production: 'Production',
-    dev: 'Dev',
-    staging: 'Staging',
-    uat: 'UAT',
-    local: 'Local',
-  };
-  const label = labels[e] || e.charAt(0).toUpperCase() + e.slice(1);
-  return `Frontend · ${label}`;
-}
 
 export default function App() {
   const [health, setHealth] = useState(null);
@@ -38,8 +24,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 480 }}>
-      <h1>Staging Env. Amir App</h1>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{frontendTitle(health)}</h1>
+      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{formatFrontendTitle(health)}</h1>
 
       <section style={{ marginBottom: 24 }}>
         <div style={{ fontWeight: 600, marginBottom: 8 }}>Health</div>
@@ -48,7 +33,7 @@ export default function App() {
         </pre>
       </section>
 
-      <section> 
+      <section>
         <button
           type="button"
           onClick={loadCreds}

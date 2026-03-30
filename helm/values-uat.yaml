@@ -1,4 +1,4 @@
-# UAT — pre-production: prod-like capacity, HA, HPA smoke-test
+# UAT — namespace `uat`. Tag `uat-<sha>`.
 replicaCount: 2
 
 extraEnv:
@@ -16,17 +16,14 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-service:
-  type: LoadBalancer
-
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
-
 autoscaling:
   enabled: true
   minReplicas: 2
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: ""
+
+credentialsSecret:
+  enabled: true
+  name: chat-app-credentials
+  optional: true
