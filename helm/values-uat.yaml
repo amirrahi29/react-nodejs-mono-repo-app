@@ -1,4 +1,20 @@
+# UAT — pre-production: prod-like capacity, HA, HPA smoke-test
 replicaCount: 2
+
+extraEnv:
+  - name: APP_ENV
+    value: uat
+
+podAnnotations:
+  environment: uat
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 service:
   type: LoadBalancer
@@ -9,6 +25,8 @@ ingress:
   hosts: []
 
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 2
-  maxReplicas: 4
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: ""

@@ -1,5 +1,17 @@
 replicaCount: 2
 
+extraEnv:
+  - name: APP_ENV
+    value: staging
+
+resources:
+  limits:
+    cpu: 400m
+    memory: 384Mi
+  requests:
+    cpu: 75m
+    memory: 96Mi
+
 service:
   type: LoadBalancer
 

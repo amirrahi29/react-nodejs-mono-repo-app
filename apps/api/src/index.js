@@ -11,12 +11,18 @@ const { loadAppSecrets, getAppSecrets } = require("./keyvault");
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 const isProd = process.env.NODE_ENV === "production";
+const appEnv =
+  process.env.APP_ENV ||
+  (isProd ? "production" : "local");
 const webBuildDir = path.join(__dirname, "..", "..", "web", "build");
 
 const api = express.Router();
 
 api.get("/health", (_req, res) => {
-  res.json({ status: "Backend Dev Branch App.." });
+  res.json({
+    status: "ok",
+    env: appEnv,
+  });
 });
 
 api.get("/secret", (_req, res) => {

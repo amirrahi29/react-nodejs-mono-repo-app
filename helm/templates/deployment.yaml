@@ -39,6 +39,10 @@ spec:
               value: "production"
             - name: PORT
               value: "{{ .Values.service.targetPort }}"
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

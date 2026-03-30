@@ -38,6 +38,10 @@ autoscaling:
   targetMemoryUtilizationPercentage: ""
 
 podAnnotations: {}
+
+# Injected into the app container (e.g. APP_ENV for /api/health and logging).
+extraEnv: []
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

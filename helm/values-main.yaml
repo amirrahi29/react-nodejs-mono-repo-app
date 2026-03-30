@@ -1,5 +1,9 @@
 replicaCount: 1
 
+extraEnv:
+  - name: APP_ENV
+    value: production
+
 resources:
   limits:
     cpu: 250m
