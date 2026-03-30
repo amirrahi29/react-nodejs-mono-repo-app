@@ -5,9 +5,12 @@ name: Build, Push & Deploy to AKS
 on:
   push:
     branches:
+      - main
       - dev
       - staging
       - uat
+  # Actions tab → workflow → "Run workflow" (push ke bina test karne ke liye)
+  workflow_dispatch:
 
 env:
   # Login server: chatregistryapp.azurecr.io (Container registry: ChatRegistryApp, RG ChatResourceGroup)

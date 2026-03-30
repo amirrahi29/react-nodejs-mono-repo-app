@@ -1,0 +1,13 @@
+# main branch deploy — same shape as dev; tune service/ingress for prod later
+service:
+  type: LoadBalancer
+
+ingress:
+  enabled: false
+  className: nginx
+  hosts: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
