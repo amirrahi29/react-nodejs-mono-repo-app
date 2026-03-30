@@ -1,5 +1,6 @@
 # Multi-env: branch = namespace = values file (main / dev / staging / uat)
-# Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
+# Secrets: AZURE_CREDENTIALS. Optional Key Vault: AZURE_KEY_VAULT_URL, KEY_VAULT_USERNAME_SECRET_NAME,
+# KEY_VAULT_PASSWORD_SECRET_NAME, AZURE_WORKLOAD_CLIENT_ID, AKS_WORKLOAD_SERVICE_ACCOUNT.
 name: Build, Push & Deploy to AKS
 
 # Easier to spot branch in the Actions list (default title is only the commit message).
@@ -81,6 +82,8 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.image_ref }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -116,12 +119,19 @@ jobs:
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
+          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
+          WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
           helm lint "${HELM_CHART_PATH}"
+          source scripts/ci/helm-keyvault-args.sh
           helm template "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
             -f "${HELM_CHART_PATH}/values-${NS}.yaml" \
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
+            "${HELM_KV_ARGS[@]}" \
             > rendered-manifest.yaml
 
       - uses: actions/upload-artifact@v4
@@ -134,13 +144,21 @@ jobs:
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
+          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
+          WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
+          set -euo pipefail
+          source scripts/ci/helm-keyvault-args.sh
           helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
             --namespace "${NS}" \
             --create-namespace \
             -f "${HELM_CHART_PATH}/values-${NS}.yaml" \
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
+            "${HELM_KV_ARGS[@]}" \
             --wait --timeout 8m --atomic --cleanup-on-fail \
             --history-max 15
 

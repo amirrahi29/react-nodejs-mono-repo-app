@@ -1,8 +1,12 @@
+# Dev — namespace `dev`. Tag `dev-<sha>`.
 replicaCount: 1
 
 extraEnv:
   - name: APP_ENV
     value: dev
+
+podAnnotations:
+  environment: dev
 
 resources:
   limits:
@@ -12,15 +16,12 @@ resources:
     cpu: 50m
     memory: 64Mi
 
-service:
-  type: LoadBalancer
-
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
-
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 2
+
+credentialsSecret:
+  enabled: true
+  name: chat-app-credentials
+  optional: true

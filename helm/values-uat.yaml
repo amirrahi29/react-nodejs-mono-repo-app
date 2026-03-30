@@ -1,5 +1,6 @@
-# UAT — namespace `uat`, file values-uat.yaml. Pre-prod: HA + HPA.
-# Push `uat` → pipeline deploys here with image tag `uat-<sha>`.
+# UAT — namespace `uat`. Tag `uat-<sha>`.
+# Secrets: GitHub AZURE_KEY_VAULT_URL + WI, or K8s secret (optional):
+# kubectl create secret generic chat-app-credentials -n uat --from-literal=APP_USERNAME=x --from-literal=APP_PASSWORD=y
 replicaCount: 2
 
 extraEnv:
@@ -23,3 +24,8 @@ autoscaling:
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: ""
+
+credentialsSecret:
+  enabled: true
+  name: chat-app-credentials
+  optional: true
