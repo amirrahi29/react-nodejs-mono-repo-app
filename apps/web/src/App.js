@@ -38,6 +38,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 480 }}>
+      <h1>UAT Env. Amir App</h1>
       <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{frontendTitle(health)}</h1>
 
       <section style={{ marginBottom: 24 }}>
