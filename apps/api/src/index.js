@@ -1,7 +1,7 @@
 const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
-const { loadAppSecrets, getAppSecrets } = require("./keyvault");
+const { loadAppSecrets, getAppSecrets, credentialsMode } = require("./keyvault");
 const config = require("./config");
 
 const app = express();
@@ -19,6 +19,7 @@ api.get("/health", (_req, res) => {
     status: "ok",
     env: config.appEnv,
     version: config.buildVersion,
+    credentials: credentialsMode(),
   });
 });
 

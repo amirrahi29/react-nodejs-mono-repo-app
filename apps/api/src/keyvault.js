@@ -1,4 +1,7 @@
-const { DefaultAzureCredential } = require("@azure/identity");
+const {
+  DefaultAzureCredential,
+  ManagedIdentityCredential,
+} = require("@azure/identity");
 const { SecretClient } = require("@azure/keyvault-secrets");
 
 let secretCache = null;
@@ -11,21 +14,53 @@ function vaultHostFromUrl(vaultUrl) {
   }
 }
 
+/** AKS Workload Identity: prefer explicit UAMI when AZURE_CLIENT_ID is set. */
+function createAzureCredential() {
+  const clientId = (process.env.AZURE_CLIENT_ID || "").trim();
+  if (clientId) {
+    return new ManagedIdentityCredential({ clientId });
+  }
+  return new DefaultAzureCredential();
+}
+
+function readPlaintextCreds() {
+  const username = (
+    process.env.APP_USERNAME ||
+    process.env.username ||
+    ""
+  ).trim();
+  const password = (
+    process.env.APP_PASSWORD ||
+    process.env.password ||
+    ""
+  ).trim();
+  return { username, password };
+}
+
+function resolveVaultUrl() {
+  return (
+    process.env.AZURE_KEY_VAULT_URL ||
+    process.env.AZURE_KEYVAULT_URI ||
+    ""
+  )
+    .trim()
+    .replace(/\/+$/, "");
+}
+
 async function loadAppSecrets() {
   if (secretCache) return secretCache;
 
-  const vaultUrl = (process.env.AZURE_KEY_VAULT_URL || "").trim().replace(/\/+$/, "");
+  const vaultUrl = resolveVaultUrl();
 
   if (!vaultUrl) {
-    const username = process.env.APP_USERNAME || "";
-    const password = process.env.APP_PASSWORD || "";
+    const { username, password } = readPlaintextCreds();
     if (!username && !password) {
       console.log(
         JSON.stringify({
           msg: "keyvault_skipped",
           reason: "no_vault_url_and_no_app_creds",
           hint:
-            "Set AZURE_KEY_VAULT_URL on the pod (Helm keyVault) or APP_USERNAME/APP_PASSWORD via .env or credentialsSecret",
+            "Set AZURE_KEY_VAULT_URL (Helm keyVault / GitHub secret) or create K8s secret with APP_USERNAME & APP_PASSWORD (credentialsSecret), or username/password keys.",
         })
       );
     } else {
@@ -45,10 +80,13 @@ async function loadAppSecrets() {
       vaultHost: host,
       usernameSecret: userKey,
       passwordSecret: passKey,
+      identity: (process.env.AZURE_CLIENT_ID || "").trim()
+        ? "managed_identity_client_id"
+        : "default_credential_chain",
     })
   );
 
-  const client = new SecretClient(vaultUrl, new DefaultAzureCredential());
+  const client = new SecretClient(vaultUrl, createAzureCredential());
   let u;
   let p;
   try {
@@ -63,7 +101,7 @@ async function loadAppSecrets() {
       })
     );
     throw new Error(
-      `Key Vault failed (${code}): ${err.message}. Check URL, secret names (${userKey}, ${passKey}), and identity (AZURE_CLIENT_ID + Workload Identity, or node/pod MI) plus Key Vault Secrets User RBAC.`
+      `Key Vault failed (${code}): ${err.message}. Check URL, secret names (${userKey}, ${passKey}), AZURE_WORKLOAD_CLIENT_ID + serviceAccount.name, federated credential, and Key Vault Secrets User RBAC.`
     );
   }
 
@@ -78,7 +116,7 @@ async function loadAppSecrets() {
           ? `"${userKey}"`
           : `"${passKey}"`;
     throw new Error(
-      `Key Vault returned empty value for ${which}. Confirm secret names match Key Vault, latest version is enabled, and values are not blank.`
+      `Key Vault returned empty value for ${which}. Confirm names in the vault, latest version enabled, and values are not blank.`
     );
   }
 
@@ -92,4 +130,12 @@ function getAppSecrets() {
   return secretCache;
 }
 
-module.exports = { loadAppSecrets, getAppSecrets };
+/** For /api/health — no secret values. */
+function credentialsMode() {
+  if (resolveVaultUrl()) return "keyvault";
+  const { username, password } = readPlaintextCreds();
+  if (username || password) return "environment";
+  return "none";
+}
+
+module.exports = { loadAppSecrets, getAppSecrets, credentialsMode };
