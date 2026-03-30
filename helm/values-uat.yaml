@@ -1,14 +1,24 @@
+# UAT — pre-prod: prod-like resources, HPA before production.
 replicaCount: 2
 
-service:
-  type: LoadBalancer
+extraEnv:
+  - name: APP_ENV
+    value: uat
 
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
+podAnnotations:
+  environment: uat
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 2
-  maxReplicas: 4
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: ""

@@ -21,7 +21,17 @@ spec:
       {{- end }}
       labels:
         {{- include "chat-app.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name | quote }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -30,6 +40,10 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
@@ -39,6 +53,28 @@ spec:
               value: "production"
             - name: PORT
               value: "{{ .Values.service.targetPort }}"
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- if .Values.keyVault.enabled }}
+            - name: AZURE_KEY_VAULT_URL
+              value: {{ .Values.keyVault.vaultUrl | quote }}
+            - name: KEY_VAULT_USERNAME_SECRET
+              value: {{ .Values.keyVault.usernameSecretName | quote }}
+            - name: KEY_VAULT_PASSWORD_SECRET
+              value: {{ .Values.keyVault.passwordSecretName | quote }}
+            {{- if .Values.keyVault.azureClientId }}
+            - name: AZURE_CLIENT_ID
+              value: {{ .Values.keyVault.azureClientId | quote }}
+            {{- end }}
+            {{- end }}
+          {{- if and .Values.credentialsSecret.enabled .Values.credentialsSecret.name }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.credentialsSecret.name | quote }}
+                optional: {{ .Values.credentialsSecret.optional }}
+          {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

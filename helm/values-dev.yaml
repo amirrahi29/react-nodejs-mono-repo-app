@@ -1,4 +1,12 @@
+# Dev — single pod, small limits (inherits service/ingress from chart defaults).
 replicaCount: 1
+
+extraEnv:
+  - name: APP_ENV
+    value: dev
+
+podAnnotations:
+  environment: dev
 
 resources:
   limits:
@@ -7,14 +15,6 @@ resources:
   requests:
     cpu: 50m
     memory: 64Mi
-
-service:
-  type: LoadBalancer
-
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
 
 autoscaling:
   enabled: false

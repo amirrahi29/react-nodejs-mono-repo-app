@@ -1,22 +1,16 @@
-replicaCount: 1
+# Production (main) — chart default resources; wider HPA ceiling.
+replicaCount: 2
 
-resources:
-  limits:
-    cpu: 250m
-    memory: 256Mi
-  requests:
-    cpu: 50m
-    memory: 64Mi
+extraEnv:
+  - name: APP_ENV
+    value: production
 
-service:
-  type: LoadBalancer
-
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
+podAnnotations:
+  environment: production
 
 autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 2
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: ""
