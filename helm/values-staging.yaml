@@ -1,8 +1,12 @@
+# Staging — integration / QA: 2 replicas, between dev and UAT on resources, HPA for load checks
 replicaCount: 2
 
 extraEnv:
   - name: APP_ENV
     value: staging
+
+podAnnotations:
+  environment: staging
 
 resources:
   limits:
@@ -21,6 +25,8 @@ ingress:
   hosts: []
 
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 2
-  maxReplicas: 4
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: ""
