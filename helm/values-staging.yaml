@@ -1,4 +1,5 @@
-# Staging — integration / QA: 2 replicas, between dev and UAT on resources, HPA for load checks
+# Staging — namespace `staging`, file values-staging.yaml. Integration / QA tier.
+# Push `staging` → pipeline deploys here with image tag `staging-<sha>`.
 replicaCount: 2
 
 extraEnv:
@@ -15,14 +16,6 @@ resources:
   requests:
     cpu: 75m
     memory: 96Mi
-
-service:
-  type: LoadBalancer
-
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
 
 autoscaling:
   enabled: true

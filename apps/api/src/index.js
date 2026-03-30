@@ -48,7 +48,9 @@ if (isProd) {
     res.sendFile(path.join(webBuildDir, "index.html"), (err) => (err ? next(err) : undefined));
   });
 } else {
-  app.get("/", (_req, res) => res.type("text").send("API /api/* — use web uat on :3000"));
+  app.get("/", (_req, res) =>
+    res.type("text").send("API /api/* — run web app dev server on :3000")
+  );
 }
 
 loadAppSecrets()
