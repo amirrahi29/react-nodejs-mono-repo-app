@@ -1,4 +1,5 @@
-# UAT — pre-production: prod-like capacity, HA, HPA smoke-test
+# UAT — namespace `uat`, file values-uat.yaml. Pre-prod: HA + HPA.
+# Push `uat` → pipeline deploys here with image tag `uat-<sha>`.
 replicaCount: 2
 
 extraEnv:
@@ -15,14 +16,6 @@ resources:
   requests:
     cpu: 100m
     memory: 128Mi
-
-service:
-  type: LoadBalancer
-
-ingress:
-  enabled: false
-  className: nginx
-  hosts: []
 
 autoscaling:
   enabled: true
