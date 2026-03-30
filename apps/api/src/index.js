@@ -16,7 +16,7 @@ const webBuildDir = path.join(__dirname, "..", "..", "web", "build");
 const api = express.Router();
 
 api.get("/health", (_req, res) => {
-  res.json({ status: "Backend Dev Branch App" });
+  res.json({ status: "Backend Dev Branch App.." });
 });
 
 api.get("/secret", (_req, res) => {
