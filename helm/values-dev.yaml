@@ -1,15 +1,11 @@
-# Dev — same namespace dev; tune host when Ingress enabled
+# Dev — Ingress band; LoadBalancer IP se access. Ingress on karte waqt apna host yahan bharo.
 service:
   type: LoadBalancer
 
 ingress:
   enabled: false
   className: nginx
-  hosts:
-    - host: app-dev.mergeai.in
-      paths:
-        - path: /
-          pathType: Prefix
+  hosts: []
 
 autoscaling:
   enabled: false

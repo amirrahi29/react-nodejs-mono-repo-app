@@ -4,11 +4,7 @@ service:
 ingress:
   enabled: false
   className: nginx
-  hosts:
-    - host: app-staging.mergeai.in
-      paths:
-        - path: /
-          pathType: Prefix
+  hosts: []
 
 autoscaling:
   enabled: false
