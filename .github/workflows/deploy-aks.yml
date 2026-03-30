@@ -1,10 +1,14 @@
-# Multi-env: branch = namespace = values file (dev / staging / uat)
+# Multi-env: branch = namespace = values file (main / dev / staging / uat)
 # Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
 name: Build, Push & Deploy to AKS
 
 on:
   push:
-    branches: [dev, staging, uat]
+    branches:
+      - main
+      - dev
+      - staging
+      - uat
   workflow_dispatch:
     inputs:
       operation:
@@ -39,7 +43,8 @@ env:
 
 jobs:
   build-and-push:
-    if: github.event_name == 'push' || github.event.inputs.operation == 'deploy'
+    # Push: always run. workflow_dispatch: only when operation is deploy (not rollback).
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.operation == 'deploy'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
