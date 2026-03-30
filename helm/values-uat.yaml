@@ -1,8 +1,4 @@
 # UAT — pre-prod: prod-like resources, HPA before production.
-# Secrets: (1) GitHub Secrets → Key Vault (AZURE_KEY_VAULT_URL + WI) or (2) K8s secret in namespace `uat`:
-#   kubectl create secret generic chat-app-credentials -n uat \
-#     --from-literal=APP_USERNAME='...' --from-literal=APP_PASSWORD='...'
-# Workload Identity: set repo secrets AZURE_WORKLOAD_CLIENT_ID + AKS_WORKLOAD_SERVICE_ACCOUNT (SA name in that NS).
 replicaCount: 2
 
 extraEnv:
@@ -26,8 +22,3 @@ autoscaling:
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: ""
-
-credentialsSecret:
-  enabled: true
-  name: chat-app-credentials
-  optional: true
