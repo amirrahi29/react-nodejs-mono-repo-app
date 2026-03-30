@@ -1,5 +1,5 @@
 # Multi-env: dev / staging / uat → ACR image + Helm deploy (React + Express, single image)
-# Pattern aligned with https://github.com/amirrahi29/reactjs-azure-ci-cid-github-actions
+# Azure resources (portal): ACR ChatRegistryApp → chatregistryapp.azurecr.io | AKS ChatAppCluster | RG ChatResourceGroup | Sub dde8a869-f29f-41ae-90ea-0047779211e6
 name: Build, Push & Deploy to AKS
 
 on:
@@ -10,7 +10,8 @@ on:
       - uat
 
 env:
-  ACR_NAME: chatappregsistry
+  # Login server: chatregistryapp.azurecr.io (Container registry: ChatRegistryApp, RG ChatResourceGroup)
+  ACR_NAME: chatregistryapp
   IMAGE_NAME: deployment-app
   AKS_CLUSTER_NAME: ChatAppCluster
   AKS_RESOURCE_GROUP: ChatResourceGroup

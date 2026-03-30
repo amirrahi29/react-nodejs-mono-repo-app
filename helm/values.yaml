@@ -2,7 +2,8 @@
 replicaCount: 2
 
 image:
-  repository: chatappregsistry.azurecr.io/deployment-app
+  # ChatRegistryApp → chatregistryapp.azurecr.io
+  repository: chatregistryapp.azurecr.io/deployment-app
   pullPolicy: IfNotPresent
   tag: "dev-latest"
 
