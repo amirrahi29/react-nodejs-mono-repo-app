@@ -9,7 +9,7 @@ async function loadAppSecrets() {
   const vaultUrl = (process.env.AZURE_KEY_VAULT_URL || "").trim().replace(/\/+$/, "");
 
   if (!vaultUrl) {
-    console.log("[keyvault] AZURE_KEY_VAULT_URL not set — using APP_USERNAME / APP_PASSWORD from .env");
+    console.log("[keyvault] skipped (.env credentials)");
     secretCache = {
       username: process.env.APP_USERNAME || "",
       password: process.env.APP_PASSWORD || "",
@@ -23,7 +23,7 @@ async function loadAppSecrets() {
   const [u, p] = await Promise.all([client.getSecret(user), client.getSecret(pass)]);
 
   secretCache = { username: u.value ?? "", password: p.value ?? "" };
-  console.log("[keyvault] loaded from Azure Key Vault");
+  console.log("[keyvault] Azure Key Vault OK");
   return secretCache;
 }
 

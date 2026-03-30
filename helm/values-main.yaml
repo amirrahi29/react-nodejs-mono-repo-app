@@ -1,4 +1,3 @@
-# main branch deploy — same shape as dev; tune service/ingress for prod later
 service:
   type: LoadBalancer
 

@@ -1,40 +1,24 @@
 import React, { useEffect, useState } from 'react';
+import { fetchHealth, fetchSecret } from './api';
 
-const App = () => {
+export default function App() {
   const [health, setHealth] = useState(null);
   const [creds, setCreds] = useState(null);
-  const [loadingCreds, setLoadingCreds] = useState(false);
-  const [credsError, setCredsError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(null);
 
   useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => setHealth({ error: 'unreachable' }));
+    fetchHealth().then(setHealth).catch(() => setHealth({ error: 'unreachable' }));
   }, []);
 
-  const getCredentials = () => {
-    setLoadingCreds(true);
-    setCredsError(null);
+  const loadCreds = () => {
+    setLoading(true);
+    setErr(null);
     setCreds(null);
-    fetch('/api/secret')
-      .then(async (r) => {
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) {
-          throw new Error(data.error || `HTTP ${r.status}`);
-        }
-        return data;
-      })
-      .then((data) => {
-        setCreds({
-          username: data.username ?? '',
-          password: data.password ?? '',
-        });
-      })
-      .catch((e) => {
-        setCredsError(e.message || 'Request failed');
-      })
-      .finally(() => setLoadingCreds(false));
+    fetchSecret()
+      .then(setCreds)
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -44,35 +28,33 @@ const App = () => {
       <section style={{ marginBottom: 24 }}>
         <div style={{ fontWeight: 600, marginBottom: 8 }}>Health</div>
         <pre style={{ margin: 0, padding: 12, background: '#f4f4f5', borderRadius: 8, fontSize: 13 }}>
-          {health ? JSON.stringify(health, null, 2) : 'loading…'}
+          {health ? JSON.stringify(health, null, 2) : '…'}
         </pre>
       </section>
 
       <section>
         <button
           type="button"
-          onClick={getCredentials}
-          disabled={loadingCreds}
+          onClick={loadCreds}
+          disabled={loading}
           style={{
             padding: '10px 18px',
             fontSize: 15,
             fontWeight: 600,
-            cursor: loadingCreds ? 'wait' : 'pointer',
+            cursor: loading ? 'wait' : 'pointer',
             borderRadius: 8,
             border: '1px solid #2563eb',
-            background: loadingCreds ? '#93c5fd' : '#2563eb',
+            background: loading ? '#93c5fd' : '#2563eb',
             color: '#fff',
           }}
         >
-          {loadingCreds ? 'Loading…' : 'Get credentials'}
+          {loading ? 'Loading…' : 'Get credentials'}
         </button>
-
-        {credsError && (
+        {err && (
           <p style={{ color: '#b91c1c', marginTop: 12 }} role="alert">
-            {credsError}
+            {err}
           </p>
         )}
-
         {creds && (
           <div
             style={{
@@ -96,6 +78,4 @@ const App = () => {
       </section>
     </div>
   );
-};
-
-export default App;
+}

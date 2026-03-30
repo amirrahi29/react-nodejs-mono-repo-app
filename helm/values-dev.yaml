@@ -1,4 +1,3 @@
-# Dev — Ingress band; LoadBalancer IP se access. Ingress on karte waqt apna host yahan bharo.
 service:
   type: LoadBalancer
 

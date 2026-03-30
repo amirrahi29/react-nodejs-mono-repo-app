@@ -1,101 +1,219 @@
-# Multi-env: dev / staging / uat → ACR image + Helm deploy (React + Express, single image)
-# Azure resources (portal): ACR ChatRegistryApp → chatregistryapp.azurecr.io | AKS ChatAppCluster | RG ChatResourceGroup | Sub dde8a869-f29f-41ae-90ea-0047779211e6
-name: Build, Push & Deploy to AKS
+# Secrets: AZURE_CREDENTIALS | Optional OIDC: id-token write + swap azure/login inputs per Azure docs
+name: CD — AKS
 
 on:
   push:
-    branches:
-      - main
-      - dev
-      - staging
-      - uat
-  # Actions tab → workflow → "Run workflow" (push ke bina test karne ke liye)
+    branches: [main, dev, staging, uat]
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Full pipeline or Helm rollback only
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+      helm_revision:
+        description: Rollback revision (blank = previous)
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+  actions: write
+
+concurrency:
+  group: cd-aks-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 env:
-  # Login server: chatregistryapp.azurecr.io (Container registry: ChatRegistryApp, RG ChatResourceGroup)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ACR_NAME: chatregistryapp
   IMAGE_NAME: deployment-app
   AKS_CLUSTER_NAME: ChatAppCluster
   AKS_RESOURCE_GROUP: ChatResourceGroup
+  HELM_VERSION: v3.14.4
+  HELM_RELEASE: deployment-app
+  HELM_CHART_PATH: ./helm
 
 jobs:
   build-and-push:
+    if: github.event_name == 'push' || github.event.inputs.operation == 'deploy'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
       namespace: ${{ steps.meta.outputs.namespace }}
-
+      image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Set image tag and namespace
-        id: meta
+      - id: meta
         run: |
           BRANCH=${GITHUB_REF#refs/heads/}
           SHORT_SHA=$(git rev-parse --short HEAD)
-          echo "IMAGE_TAG=${BRANCH}-${SHORT_SHA}" >> $GITHUB_ENV
-          echo "image_tag=${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "namespace=${BRANCH}" >> $GITHUB_OUTPUT
+          TAG="${BRANCH}-${SHORT_SHA}"
+          echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "namespace=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${ACR_NAME}.azurecr.io/${IMAGE_NAME}:${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Login to ACR
-        run: az acr login --name $ACR_NAME
-
-      - name: Build image (web build + Node API)
-        run: |
-          echo "Building: $ACR_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG"
-          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG .
-
-      - name: Push image to ACR
-        run: docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG
-
-      - name: Image summary
-        run: |
-          echo "Pushed ${ACR_NAME}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG}"
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v2
+      - uses: ./.github/actions/azure-session
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+          acr-name: ${{ env.ACR_NAME }}
 
-      - name: Set AKS kubeconfig
-        uses: azure/aks-set-context@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
         with:
-          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.image_ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.14.4
-
-      - name: Helm upgrade (deployment-app)
+      - name: Summary
         run: |
-          NS='${{ needs.build-and-push.outputs.namespace }}'
-          helm upgrade --install deployment-app ./helm \
-            --namespace "$NS" \
+          echo "## Image" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag | \`${IMAGE_TAG}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Ref | \`${{ steps.meta.outputs.image_ref }}\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: build-and-push
+    if: always() && needs.build-and-push.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/azure-session
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          aks-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          aks-cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Lint & render
+        env:
+          NS: ${{ needs.build-and-push.outputs.namespace }}
+          TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          helm lint "${HELM_CHART_PATH}"
+          helm template "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
+            -f "${HELM_CHART_PATH}/values-${NS}.yaml" \
+            --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
+            --set "image.tag=${TAG}" \
+            > rendered-manifest.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helm-rendered-${{ needs.build-and-push.outputs.namespace }}-${{ github.sha }}
+          path: rendered-manifest.yaml
+          retention-days: 14
+
+      - name: Upgrade
+        env:
+          NS: ${{ needs.build-and-push.outputs.namespace }}
+          TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
+            --namespace "${NS}" \
             --create-namespace \
-            -f "helm/values-${NS}.yaml" \
-            --set image.repository=${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ needs.build-and-push.outputs.image_tag }} \
-            --wait --timeout 5m
+            -f "${HELM_CHART_PATH}/values-${NS}.yaml" \
+            --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
+            --set "image.tag=${TAG}" \
+            --wait --timeout 8m --atomic --cleanup-on-fail \
+            --history-max 15
 
-      - name: Deploy summary
+      - name: Rollout
+        env:
+          NS: ${{ needs.build-and-push.outputs.namespace }}
+        run: kubectl rollout status "deployment/${HELM_RELEASE}" -n "${NS}" --timeout=5m
+
+      - name: Summary
+        env:
+          NS: ${{ needs.build-and-push.outputs.namespace }}
+          TAG: ${{ needs.build-and-push.outputs.image_tag }}
         run: |
-          echo "Namespace: ${{ needs.build-and-push.outputs.namespace }}"
-          echo "Chart: ./helm | Release: deployment-app"
-          echo "Tag: ${{ needs.build-and-push.outputs.image_tag }}"
+          echo "## Deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Namespace | \`${NS}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag | \`${TAG}\` |" >> "$GITHUB_STEP_SUMMARY"
+          helm history "${HELM_RELEASE}" -n "${NS}" --max 3 >> "$GITHUB_STEP_SUMMARY" || true
+
+  rollback:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'rollback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/azure-session
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          aks-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          aks-cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Rollback
+        env:
+          NS: ${{ github.ref_name }}
+          REV: ${{ github.event.inputs.helm_revision }}
+        run: |
+          if [ -z "$REV" ]; then
+            helm rollback "${HELM_RELEASE}" --namespace "${NS}" --wait --timeout 5m
+          else
+            helm rollback "${HELM_RELEASE}" "$REV" --namespace "${NS}" --wait --timeout 5m
+          fi
+          kubectl rollout status "deployment/${HELM_RELEASE}" -n "${NS}" --timeout=5m
+
+      - name: Summary
+        env:
+          NS: ${{ github.ref_name }}
+        run: |
+          echo "## Helm rollback" >> "$GITHUB_STEP_SUMMARY"
+          helm history "${HELM_RELEASE}" -n "${NS}" --max 5 >> "$GITHUB_STEP_SUMMARY"
+
+  diagnostics:
+    needs: [build-and-push, deploy]
+    if: always() && needs.build-and-push.result == 'success' && needs.deploy.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/azure-session
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          aks-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          aks-cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - name: Collect
+        env:
+          NS: ${{ needs.build-and-push.outputs.namespace }}
+        run: |
+          mkdir -p diag
+          helm history "${HELM_RELEASE}" -n "${NS}" --max 10 > diag/helm-history.txt 2>&1 || true
+          kubectl get pods,svc,events -n "${NS}" -o wide > diag/cluster.txt 2>&1 || true
+          kubectl describe deployment "${HELM_RELEASE}" -n "${NS}" > diag/describe-deploy.txt 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploy-failure-${{ needs.build-and-push.outputs.namespace }}-${{ github.run_id }}
+          path: diag/
+          retention-days: 7
+
+      - name: Summary
+        env:
+          NS: ${{ needs.build-and-push.outputs.namespace }}
+        run: |
+          echo "## Deploy failed — see artifact **deploy-failure-***" >> "$GITHUB_STEP_SUMMARY"
+          echo "Namespace: \`${NS}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Atomic rollback may have run; check \`helm history\` in artifact." >> "$GITHUB_STEP_SUMMARY"

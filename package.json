@@ -15,7 +15,7 @@
     "build": "turbo run build",
     "start:web": "npm run start -w @repo/web",
     "start:api": "npm run start -w @repo/api",
-    "local:one-port": "npm run build -w @repo/web && NODE_ENV=production PORT=3000 node apps/api/src/index.js"
+    "preview": "npm run build -w @repo/web && NODE_ENV=production PORT=3000 node apps/api/src/index.js"
   },
   "devDependencies": {
     "turbo": "^2.5.4"

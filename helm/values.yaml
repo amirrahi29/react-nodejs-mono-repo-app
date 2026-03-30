@@ -1,8 +1,6 @@
-# Monorepo app — CI overrides image via --set; env-specific: helm/values-<branch>.yaml
 replicaCount: 2
 
 image:
-  # ChatRegistryApp → chatregistryapp.azurecr.io
   repository: chatregistryapp.azurecr.io/deployment-app
   pullPolicy: IfNotPresent
   tag: "dev-latest"

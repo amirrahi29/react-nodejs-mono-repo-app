@@ -13,7 +13,6 @@ const PORT = Number(process.env.PORT) || 4000;
 const isProd = process.env.NODE_ENV === "production";
 const webBuildDir = path.join(__dirname, "..", "..", "web", "build");
 
-/** Backend routes — hamesha `/api` ke under (prod / Ingress / CDN split ke liye sahi pattern). */
 const api = express.Router();
 
 api.get("/health", (_req, res) => {
@@ -43,9 +42,7 @@ if (isProd) {
     res.sendFile(path.join(webBuildDir, "index.html"), (err) => (err ? next(err) : undefined));
   });
 } else {
-  app.get("/", (_req, res) =>
-    res.type("text").send("API: /api/health, /api/secret — web: npm run dev -w @repo/web (proxy /api → this server)"),
-  );
+  app.get("/", (_req, res) => res.type("text").send("API /api/* — use web dev on :3000"));
 }
 
 loadAppSecrets()
