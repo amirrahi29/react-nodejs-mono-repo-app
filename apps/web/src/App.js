@@ -23,7 +23,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 480 }}>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>App</h1>
+      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Frontend Dev Branch App</h1>
 
       <section style={{ marginBottom: 24 }}>
         <div style={{ fontWeight: 600, marginBottom: 8 }}>Health</div>
