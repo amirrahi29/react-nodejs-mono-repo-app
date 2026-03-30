@@ -53,7 +53,7 @@ spec:
               value: "production"
             - name: PORT
               value: "{{ .Values.service.targetPort }}"
-            {{- range .Values.extraEnv }}
+            {{- range (.Values.extraEnv | default list) }}
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}

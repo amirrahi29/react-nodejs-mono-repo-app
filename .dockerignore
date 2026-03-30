@@ -4,6 +4,7 @@ node_modules
 npm-debug.log
 .git
 .github
+scripts
 helm
 .env
 .env.*
