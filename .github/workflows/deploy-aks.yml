@@ -2,6 +2,9 @@
 # Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
 name: Build, Push & Deploy to AKS
 
+# Easier to spot branch in the Actions list (default title is only the commit message).
+run-name: ${{ github.ref_name }} · ${{ github.event_name }}
+
 on:
   push:
     branches:
@@ -64,10 +67,12 @@ jobs:
           echo "namespace=${BRANCH}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${ACR_NAME}.azurecr.io/${IMAGE_NAME}:${TAG}" >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/azure-session
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          acr-name: ${{ env.ACR_NAME }}
+
+      - name: ACR login
+        run: az acr login --name "${ACR_NAME}"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -94,11 +99,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/azure-session
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          aks-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          aks-cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - uses: azure/aks-set-context@v5
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
       - uses: azure/setup-helm@v4
         with:
@@ -158,11 +166,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/azure-session
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          aks-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          aks-cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - uses: azure/aks-set-context@v5
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
       - uses: azure/setup-helm@v4
         with:
@@ -195,11 +206,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/azure-session
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          aks-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          aks-cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - uses: azure/aks-set-context@v5
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
       - name: Collect
         env:
