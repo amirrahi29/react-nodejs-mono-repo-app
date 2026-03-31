@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const {
   DefaultAzureCredential,
   ManagedIdentityCredential,
@@ -45,6 +46,11 @@ function readPlaintextCreds() {
     ""
   ).trim();
   return { username, password };
+}
+
+function fingerprint(value) {
+  if (!value) return null;
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 12);
 }
 
 function resolveVaultUrl() {
@@ -142,6 +148,42 @@ function getAppSecrets() {
   return secretCache;
 }
 
+function secretDebugInfo() {
+  const vaultUrl = resolveVaultUrl();
+  const userKey = (process.env.KEY_VAULT_USERNAME_SECRET || "username").trim();
+  const passKey = (process.env.KEY_VAULT_PASSWORD_SECRET || "password").trim();
+  const cached = secretCache || readPlaintextCreds();
+
+  return {
+    ready: Boolean(secretCache),
+    source: credentialsMode(),
+    vaultHost: vaultUrl ? vaultHostFromUrl(vaultUrl) : null,
+    secretNames: vaultUrl
+      ? {
+          username: userKey,
+          password: passKey,
+        }
+      : null,
+    identity: {
+      azureClientIdPresent: Boolean((process.env.AZURE_CLIENT_ID || "").trim()),
+      azureTenantIdPresent: Boolean((process.env.AZURE_TENANT_ID || "").trim()),
+      federatedTokenFilePresent: Boolean(
+        (process.env.AZURE_FEDERATED_TOKEN_FILE || "").trim()
+      ),
+    },
+    username: {
+      present: cached.username !== "",
+      length: cached.username.length,
+      fingerprint: fingerprint(cached.username),
+    },
+    password: {
+      present: cached.password !== "",
+      length: cached.password.length,
+      fingerprint: fingerprint(cached.password),
+    },
+  };
+}
+
 /** For /api/health — no secret values. */
 function credentialsMode() {
   if (resolveVaultUrl()) return "keyvault";
@@ -150,4 +192,9 @@ function credentialsMode() {
   return "none";
 }
 
-module.exports = { loadAppSecrets, getAppSecrets, credentialsMode };
+module.exports = {
+  loadAppSecrets,
+  getAppSecrets,
+  secretDebugInfo,
+  credentialsMode,
+};

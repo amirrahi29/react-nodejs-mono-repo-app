@@ -1,7 +1,12 @@
 const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
-const { loadAppSecrets, getAppSecrets, credentialsMode } = require("./keyvault");
+const {
+  loadAppSecrets,
+  getAppSecrets,
+  secretDebugInfo,
+  credentialsMode,
+} = require("./keyvault");
 const config = require("./config");
 
 const app = express();
@@ -28,6 +33,11 @@ api.get("/ready", (_req, res) => {
     return res.status(503).json({ ready: false });
   }
   res.json({ ready: true });
+});
+
+api.get("/secret-status", (_req, res) => {
+  const info = secretDebugInfo();
+  res.status(info.ready ? 200 : 503).json(info);
 });
 
 if (!config.isProd) {
