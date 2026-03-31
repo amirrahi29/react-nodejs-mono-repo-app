@@ -7,8 +7,9 @@ name: Build, Push & Deploy to AKS
 # Easier to spot branch in the Actions list (default title is only the commit message).
 run-name: ${{ github.ref_name }} · ${{ github.event_name }}
 
-# Runs only on the branches listed under push.branches — pushes to e.g. feature/* or production do nothing here.
-# Manual run: Actions → this workflow → "Run workflow" (pick branch).
+# Push triggers: exact branch names (case-sensitive: "dev" ≠ "Dev"). No match → no run.
+# If nothing runs: Repo Settings → Actions → allow Actions; confirm this file is on the branch you pushed.
+# Manual: Actions → "Build, Push & Deploy to AKS" → Run workflow → choose dev/staging/uat.
 on:
   push:
     branches:
@@ -28,10 +29,9 @@ on:
         required: false
         default: ''
 
+# Minimal token: avoids org policies that block workflows requesting broad scopes. ACR push uses Azure CLI + secrets, not GITHUB_TOKEN.
 permissions:
   contents: read
-  id-token: write
-  actions: write
 
 concurrency:
   group: cd-aks-${{ github.repository }}-${{ github.ref_name }}
@@ -60,7 +60,7 @@ jobs:
       namespace: ${{ steps.meta.outputs.namespace }}
       image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - id: meta
         run: |
@@ -88,8 +88,6 @@ jobs:
           tags: ${{ steps.meta.outputs.image_ref }}
           build-args: |
             GIT_SHA=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           provenance: false
 
       - name: Summary
@@ -105,7 +103,7 @@ jobs:
     # GitHub kills the job if exceeded; must stay above helm --wait + login/lint/upload margin.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - uses: azure/login@v2
         with:
@@ -197,7 +195,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - uses: azure/login@v2
         with:
@@ -237,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - uses: azure/login@v2
         with:
