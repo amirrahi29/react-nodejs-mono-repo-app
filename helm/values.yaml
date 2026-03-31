@@ -44,21 +44,6 @@ podAnnotations: {}
 
 extraEnv: []
 
-keyVault:
-  enabled: false
-  vaultUrl: ""
-  usernameSecretName: username
-  passwordSecretName: password
-  azureClientId: ""
-
-credentialsSecret:
-  enabled: false
-  name: chat-app-credentials
-  optional: false
-
-serviceAccount:
-  name: ""
-
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
@@ -86,6 +71,6 @@ readinessProbe:
   httpGet:
     path: /api/ready
     port: http
-  initialDelaySeconds: 5
+  initialDelaySeconds: 10
   periodSeconds: 5
-  failureThreshold: 6
+  failureThreshold: 12

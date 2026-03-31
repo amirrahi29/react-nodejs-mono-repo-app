@@ -1,6 +1,4 @@
-# UAT — namespace `uat`. Tag `uat-<sha>`.
-# Secrets: GitHub AZURE_KEY_VAULT_URL + WI, or K8s secret (optional):
-# kubectl create secret generic chat-app-credentials -n uat --from-literal=APP_USERNAME=x --from-literal=APP_PASSWORD=y
+# UAT — pre-prod: prod-like resources, HPA before production.
 replicaCount: 2
 
 extraEnv:
@@ -24,8 +22,3 @@ autoscaling:
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: ""
-
-credentialsSecret:
-  enabled: true
-  name: chat-app-credentials
-  optional: true

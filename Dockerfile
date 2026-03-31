@@ -4,9 +4,7 @@ ARG GIT_SHA=unknown
 COPY package.json package-lock.json turbo.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-COPY packages/env/package.json packages/env/
 RUN npm ci
-COPY packages/env ./packages/env
 COPY apps/web ./apps/web
 RUN npm run build -w @repo/web
 
@@ -19,9 +17,7 @@ ENV APP_BUILD_VERSION=${GIT_SHA}
 COPY package.json package-lock.json turbo.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
-COPY packages/env/package.json packages/env/
 RUN npm ci --omit=dev
-COPY packages/env ./packages/env
 COPY apps/api ./apps/api
 COPY --from=web-build /app/apps/web/build ./apps/web/build
 RUN chown -R node:node /app
