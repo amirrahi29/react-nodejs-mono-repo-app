@@ -1,17 +1,11 @@
-# =============================================================================
-# Full CD pipeline (single workflow file): Docker build + push to ACR + Helm upgrade on AKS.
-# Jobs: build-and-push -> deploy | rollback (manual) | diagnostics (if deploy fails)
-# CD runs only for branches main/dev/staging/uat (any common case). Meta step lowercases for values-<branch>.yaml.
-# Required secret: AZURE_CREDENTIALS. Optional KV/WI secrets (no ${{ }} || in YAML — coalesce in shell for older GHES).
-# In Actions UI pick workflow name below - this is your main pipeline (not a smoke test).
-# =============================================================================
-name: "Build, Push & Deploy to AKS"
-run-name: "${{ github.ref_name }} | ${{ github.event_name }}"
+name: Build, Push & Deploy to AKS
 
-# Push: all branches wake this workflow; build-and-push runs only for main/dev/staging/uat (see job if). Fixes Dev vs dev.
-# Manual: Actions -> this workflow -> Run workflow (deploy or rollback).
 on:
   push:
+    branches:
+      - dev
+      - staging
+      - uat
   workflow_dispatch:
     inputs:
       operation:
@@ -27,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  # Required for actions/upload-artifact (Helm render + deploy-failure diagnostics).
   actions: write
 
 concurrency:
@@ -35,8 +28,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Helm --wait; deploy job timeout-minutes must stay above this.
-  HELM_UPGRADE_WAIT_TIMEOUT: 30m
   ACR_NAME: chatregistryapp
   IMAGE_NAME: chat-app
   AKS_CLUSTER_NAME: ChatAppCluster
@@ -44,12 +35,11 @@ env:
   HELM_VERSION: v3.14.4
   HELM_RELEASE: chat-app
   HELM_CHART_PATH: ./helm
+  HELM_UPGRADE_WAIT_TIMEOUT: 30m
 
 jobs:
   build-and-push:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'deploy') ||
-      (github.event_name == 'push' && contains(fromJSON('["main","dev","staging","uat","Main","Dev","Staging","UAT","MAIN","DEV"]'), github.ref_name))
+    if: github.event_name == 'push' || github.event.inputs.operation == 'deploy'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
@@ -63,16 +53,15 @@ jobs:
       - name: Image tag and namespace
         id: meta
         run: |
-          BRANCH=${GITHUB_REF#refs/heads/}
-          BRANCH=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]')
-          SHORT_SHA=$(git rev-parse --short HEAD)
+          BRANCH="${GITHUB_REF_NAME}"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
           TAG="${BRANCH}-${SHORT_SHA}"
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "namespace=${BRANCH}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${ACR_NAME}.azurecr.io/${IMAGE_NAME}:${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Azure login (service principal)
+      - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -101,9 +90,8 @@ jobs:
 
   deploy:
     needs: build-and-push
-    if: always() && needs.build-and-push.result == 'success'
+    if: needs.build-and-push.result == 'success'
     runs-on: ubuntu-latest
-    # GitHub kills the job if exceeded; must stay above helm --wait + login/lint/upload margin.
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -130,17 +118,17 @@ jobs:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
           VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          _KVU_A: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
-          _KVU_B: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
-          _KVP_A: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
-          _KVP_B: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
+          KVU_PRIMARY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
+          KVU_FALLBACK: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
+          KVP_PRIMARY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          KVP_FALLBACK: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
           WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
           WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
-          KV_USER_KEY="${_KVU_A}"
-          [ -z "$KV_USER_KEY" ] && KV_USER_KEY="${_KVU_B}"
-          KV_PASS_KEY="${_KVP_A}"
-          [ -z "$KV_PASS_KEY" ] && KV_PASS_KEY="${_KVP_B}"
+          KV_USER_KEY="${KVU_PRIMARY}"
+          if [ -z "${KV_USER_KEY}" ]; then KV_USER_KEY="${KVU_FALLBACK}"; fi
+          KV_PASS_KEY="${KVP_PRIMARY}"
+          if [ -z "${KV_PASS_KEY}" ]; then KV_PASS_KEY="${KVP_FALLBACK}"; fi
           export KV_USER_KEY KV_PASS_KEY
           helm lint "${HELM_CHART_PATH}"
           source scripts/ci/helm-keyvault-args.sh
@@ -158,40 +146,25 @@ jobs:
           path: rendered-manifest.yaml
           retention-days: 14
 
-      - name: Helm upgrade (install)
+      - name: Helm upgrade
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
           VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          _KVU_A: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
-          _KVU_B: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
-          _KVP_A: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
-          _KVP_B: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
+          KVU_PRIMARY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
+          KVU_FALLBACK: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
+          KVP_PRIMARY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          KVP_FALLBACK: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
           WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
           WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
           set -euo pipefail
-          KV_USER_KEY="${_KVU_A}"
-          [ -z "$KV_USER_KEY" ] && KV_USER_KEY="${_KVU_B}"
-          KV_PASS_KEY="${_KVP_A}"
-          [ -z "$KV_PASS_KEY" ] && KV_PASS_KEY="${_KVP_B}"
+          KV_USER_KEY="${KVU_PRIMARY}"
+          if [ -z "${KV_USER_KEY}" ]; then KV_USER_KEY="${KVU_FALLBACK}"; fi
+          KV_PASS_KEY="${KVP_PRIMARY}"
+          if [ -z "${KV_PASS_KEY}" ]; then KV_PASS_KEY="${KVP_FALLBACK}"; fi
           export KV_USER_KEY KV_PASS_KEY
           source scripts/ci/helm-keyvault-args.sh
-          echo "Helm --wait (timeout=${HELM_UPGRADE_WAIT_TIMEOUT}) is quiet until pods are Ready."
-          echo "Light snapshots every ~90s (fewer API calls than Helm's own wait)."
-          (
-            sleep 45
-            while true; do
-              echo "::group::Cluster snapshot $(date -u +%H:%M:%SZ)"
-              kubectl get pods -n "${NS}" -o wide 2>/dev/null || true
-              kubectl get events -n "${NS}" --sort-by=.lastTimestamp 2>/dev/null | tail -8 || true
-              echo "::endgroup::"
-              sleep 90
-            done
-          ) &
-          HB_PID=$!
-          cleanup() { kill "$HB_PID" 2>/dev/null || true; wait "$HB_PID" 2>/dev/null || true; }
-          trap cleanup EXIT
           helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
             --namespace "${NS}" \
             --create-namespace \
@@ -199,7 +172,10 @@ jobs:
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
             "${HELM_KV_ARGS[@]}" \
-            --wait --timeout "${HELM_UPGRADE_WAIT_TIMEOUT}" --atomic --cleanup-on-fail \
+            --wait \
+            --timeout "${HELM_UPGRADE_WAIT_TIMEOUT}" \
+            --atomic \
+            --cleanup-on-fail \
             --history-max 15
 
       - name: Summary
@@ -238,27 +214,26 @@ jobs:
 
       - name: Helm rollback
         env:
+          NS: ${{ github.ref_name }}
           REV: ${{ github.event.inputs.helm_revision }}
         run: |
-          NS="${GITHUB_REF#refs/heads/}"
-          NS=$(echo "$NS" | tr '[:upper:]' '[:lower:]')
-          if [ -z "$REV" ]; then
+          if [ -z "${REV}" ]; then
             helm rollback "${HELM_RELEASE}" --namespace "${NS}" --wait --timeout 5m
           else
-            helm rollback "${HELM_RELEASE}" "$REV" --namespace "${NS}" --wait --timeout 5m
+            helm rollback "${HELM_RELEASE}" "${REV}" --namespace "${NS}" --wait --timeout 5m
           fi
           kubectl rollout status "deployment/${HELM_RELEASE}" -n "${NS}" --timeout=5m
 
       - name: Summary
+        env:
+          NS: ${{ github.ref_name }}
         run: |
-          NS="${GITHUB_REF#refs/heads/}"
-          NS=$(echo "$NS" | tr '[:upper:]' '[:lower:]')
           echo "## Helm rollback" >> "$GITHUB_STEP_SUMMARY"
           helm history "${HELM_RELEASE}" -n "${NS}" --max 5 >> "$GITHUB_STEP_SUMMARY"
 
   diagnostics:
     needs: [build-and-push, deploy]
-    if: always() && needs.build-and-push.result == 'success' && needs.deploy.result == 'failure'
+    if: needs.build-and-push.result == 'success' && needs.deploy.result == 'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -276,7 +251,7 @@ jobs:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      - name: Collect cluster diagnostics
+      - name: Collect diagnostics
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
         run: |
@@ -285,7 +260,7 @@ jobs:
           kubectl get pods,svc,events -n "${NS}" -o wide > diag/cluster.txt 2>&1 || true
           kubectl describe deployment "${HELM_RELEASE}" -n "${NS}" > diag/describe-deploy.txt 2>&1 || true
 
-      - name: Upload diagnostics artifact
+      - name: Upload diagnostics
         uses: actions/upload-artifact@v4
         with:
           name: deploy-failure-${{ needs.build-and-push.outputs.namespace }}-${{ github.run_id }}
@@ -296,6 +271,6 @@ jobs:
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
         run: |
-          echo "## Deploy failed - see artifact deploy-failure-*" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Deploy failed" >> "$GITHUB_STEP_SUMMARY"
           echo "Namespace: \`${NS}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Atomic rollback may have run; check helm history in the artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "See artifact: deploy-failure-*" >> "$GITHUB_STEP_SUMMARY"
