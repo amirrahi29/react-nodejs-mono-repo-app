@@ -7,11 +7,15 @@ name: Build, Push & Deploy to AKS
 # Easier to spot branch in the Actions list (default title is only the commit message).
 run-name: ${{ github.ref_name }} · ${{ github.event_name }}
 
+# Runs only on the branches listed under push.branches — pushes to e.g. feature/* or production do nothing here.
+# Manual run: Actions → this workflow → "Run workflow" (pick branch).
 on:
   push:
     branches:
       - main
+      - master
       - dev
+      - develop
       - staging
       - uat
   workflow_dispatch:
@@ -64,6 +68,7 @@ jobs:
       - id: meta
         run: |
           BRANCH=${GITHUB_REF#refs/heads/}
+          case "$BRANCH" in master) BRANCH=main ;; develop) BRANCH=dev ;; esac
           SHORT_SHA=$(git rev-parse --short HEAD)
           TAG="${BRANCH}-${SHORT_SHA}"
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
@@ -213,9 +218,10 @@ jobs:
 
       - name: Rollback
         env:
-          NS: ${{ github.ref_name }}
           REV: ${{ github.event.inputs.helm_revision }}
         run: |
+          NS="${GITHUB_REF#refs/heads/}"
+          case "$NS" in master) NS=main ;; develop) NS=dev ;; esac
           if [ -z "$REV" ]; then
             helm rollback "${HELM_RELEASE}" --namespace "${NS}" --wait --timeout 5m
           else
@@ -224,9 +230,9 @@ jobs:
           kubectl rollout status "deployment/${HELM_RELEASE}" -n "${NS}" --timeout=5m
 
       - name: Summary
-        env:
-          NS: ${{ github.ref_name }}
         run: |
+          NS="${GITHUB_REF#refs/heads/}"
+          case "$NS" in master) NS=main ;; develop) NS=dev ;; esac
           echo "## Helm rollback" >> "$GITHUB_STEP_SUMMARY"
           helm history "${HELM_RELEASE}" -n "${NS}" --max 5 >> "$GITHUB_STEP_SUMMARY"
 
