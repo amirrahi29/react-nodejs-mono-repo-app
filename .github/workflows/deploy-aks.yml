@@ -1,7 +1,7 @@
 # Multi-env: branch = namespace = values file (main / dev / staging / uat)
 # Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
-# Optional Key Vault (repo Secrets): AZURE_KEY_VAULT_URL, KEY_VAULT_USERNAME_SECRET_NAME,
-# KEY_VAULT_PASSWORD_SECRET_NAME (vault secret *names*), AZURE_WORKLOAD_CLIENT_ID, AKS_WORKLOAD_SERVICE_ACCOUNT.
+# Optional Key Vault: AZURE_KEY_VAULT_URL; vault entry *names* via KEY_VAULT_USERNAME_SECRET /
+# KEY_VAULT_PASSWORD_SECRET (or *_SECRET_NAME). WI: AZURE_WORKLOAD_CLIENT_ID, AKS_WORKLOAD_SERVICE_ACCOUNT.
 name: Build, Push & Deploy to AKS
 
 # Easier to spot branch in the Actions list (default title is only the commit message).
@@ -121,8 +121,8 @@ jobs:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
           VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
-          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME || secrets.KEY_VAULT_USERNAME_SECRET }}
+          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME || secrets.KEY_VAULT_PASSWORD_SECRET }}
           WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
           WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
@@ -146,8 +146,8 @@ jobs:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
           VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
-          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME || secrets.KEY_VAULT_USERNAME_SECRET }}
+          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME || secrets.KEY_VAULT_PASSWORD_SECRET }}
           WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
           WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
