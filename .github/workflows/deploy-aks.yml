@@ -1,17 +1,15 @@
-# Multi-env: branch = namespace = values file (main / dev / staging / uat)
-# Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
-# Key Vault in Helm/pods only when ALL are set: AZURE_KEY_VAULT_URL + AZURE_WORKLOAD_CLIENT_ID +
-# AKS_WORKLOAD_SERVICE_ACCOUNT. Vault entry *names* (not values): KEY_VAULT_USERNAME_SECRET_NAME or
-# KEY_VAULT_USERNAME_SECRET, same for password. URL alone → warning + deploy without KV (avoids crashing pods).
+# =============================================================================
+# Full CD pipeline (single workflow file): Docker build + push to ACR + Helm upgrade on AKS.
+# Jobs: build-and-push -> deploy | rollback (manual) | diagnostics (if deploy fails)
+# Branch -> namespace + helm/values-<branch>.yaml: main, dev, staging, uat (case-sensitive).
+# Required secret: AZURE_CREDENTIALS. Optional: Key Vault + WI (see scripts/ci/helm-keyvault-args.sh).
+# In Actions UI pick workflow name below - this is your main pipeline (not a smoke test).
+# =============================================================================
 name: "Build, Push & Deploy to AKS"
-
-# ASCII only (some clients choke on unicode in run-name).
 run-name: "${{ github.ref_name }} | ${{ github.event_name }}"
 
-# Push triggers: exact branch names (case-sensitive). Pushes to e.g. feature/* or main (if not listed) → no run.
-# Concurrency: a newer push to the same branch cancels the previous run — check the latest run, not a "Cancelled" one.
-# If nothing runs: Settings - Actions enabled; workflow file must exist on the pushed branch at that commit.
-# Manual: Actions tab - Run workflow.
+# Push: only the branches listed (e.g. feature/* does not run). Newer push cancels in-progress run on same branch.
+# Manual: Actions -> this workflow -> Run workflow (deploy or rollback).
 on:
   push:
     branches:
@@ -32,10 +30,9 @@ on:
         required: false
         default: ''
 
-# contents: checkout; actions: write required for upload-artifact (deploy job).
 permissions:
   contents: read
-  actions: write
+  actions: write # upload-artifact (rendered manifest + diagnostics)
 
 concurrency:
   group: cd-aks-${{ github.repository }}-${{ github.ref_name }}
@@ -43,7 +40,7 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  # Helm --wait budget (must match deploy job timeout-minutes). If Actions still shows 8m, this file was not pushed to the repo running the workflow.
+  # Helm --wait; deploy job timeout-minutes must stay above this.
   HELM_UPGRADE_WAIT_TIMEOUT: 30m
   ACR_NAME: chatregistryapp
   IMAGE_NAME: chat-app
@@ -55,7 +52,6 @@ env:
 
 jobs:
   build-and-push:
-    # Push: always run. workflow_dispatch: only when operation is deploy (not rollback).
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.operation == 'deploy'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -64,9 +60,11 @@ jobs:
       namespace: ${{ steps.meta.outputs.namespace }}
       image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - id: meta
+      - name: Image tag and namespace
+        id: meta
         run: |
           BRANCH=${GITHUB_REF#refs/heads/}
           SHORT_SHA=$(git rev-parse --short HEAD)
@@ -76,16 +74,19 @@ jobs:
           echo "namespace=${BRANCH}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${ACR_NAME}.azurecr.io/${IMAGE_NAME}:${TAG}" >> "$GITHUB_OUTPUT"
 
-      - uses: azure/login@v2
+      - name: Azure login (service principal)
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: ACR login
         run: az acr login --name "${ACR_NAME}"
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - uses: docker/build-push-action@v6
+      - name: Build and push image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -107,22 +108,26 @@ jobs:
     # GitHub kills the job if exceeded; must stay above helm --wait + login/lint/upload margin.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: azure/login@v2
+      - name: Azure login
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - uses: azure/aks-set-context@v5
+      - name: AKS kubeconfig
+        uses: azure/aks-set-context@v5
         with:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      - uses: azure/setup-helm@v4
+      - name: Helm CLI
+        uses: azure/setup-helm@v4
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: Lint & render
+      - name: Helm lint and template
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
@@ -141,13 +146,14 @@ jobs:
             "${HELM_KV_ARGS[@]}" \
             > rendered-manifest.yaml
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload rendered manifest
+        uses: actions/upload-artifact@v4
         with:
           name: helm-rendered-${{ needs.build-and-push.outputs.namespace }}-${{ github.sha }}
           path: rendered-manifest.yaml
           retention-days: 14
 
-      - name: Upgrade
+      - name: Helm upgrade (install)
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
@@ -199,22 +205,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: azure/login@v2
+      - name: Azure login
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - uses: azure/aks-set-context@v5
+      - name: AKS kubeconfig
+        uses: azure/aks-set-context@v5
         with:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      - uses: azure/setup-helm@v4
+      - name: Helm CLI
+        uses: azure/setup-helm@v4
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: Rollback
+      - name: Helm rollback
         env:
           NS: ${{ github.ref_name }}
           REV: ${{ github.event.inputs.helm_revision }}
@@ -239,18 +249,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: azure/login@v2
+      - name: Azure login
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - uses: azure/aks-set-context@v5
+      - name: AKS kubeconfig
+        uses: azure/aks-set-context@v5
         with:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      - name: Collect
+      - name: Collect cluster diagnostics
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
         run: |
@@ -259,7 +272,8 @@ jobs:
           kubectl get pods,svc,events -n "${NS}" -o wide > diag/cluster.txt 2>&1 || true
           kubectl describe deployment "${HELM_RELEASE}" -n "${NS}" > diag/describe-deploy.txt 2>&1 || true
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload diagnostics artifact
+        uses: actions/upload-artifact@v4
         with:
           name: deploy-failure-${{ needs.build-and-push.outputs.namespace }}-${{ github.run_id }}
           path: diag/
@@ -269,6 +283,6 @@ jobs:
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
         run: |
-          echo "## Deploy failed — see artifact **deploy-failure-***" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Deploy failed - see artifact deploy-failure-*" >> "$GITHUB_STEP_SUMMARY"
           echo "Namespace: \`${NS}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Atomic rollback may have run; check \`helm history\` in artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "Atomic rollback may have run; check helm history in the artifact." >> "$GITHUB_STEP_SUMMARY"
