@@ -4,8 +4,47 @@ body {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #fafafa;
+  color: #18181b;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 640px;
+  padding: 24px;
+}
+
+.app-title {
+  margin: 0 0 16px;
+  font-size: 24px;
+}
+
+.app-subtitle {
+  margin: 0 0 24px;
+  color: #52525b;
+}
+
+.health-card {
+  margin-bottom: 24px;
+}
+
+.health-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.health-payload {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: #f4f4f5;
+  font-size: 13px;
 }

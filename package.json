@@ -13,6 +13,8 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "test": "turbo run test",
+    "test:ci": "turbo run test",
     "start:web": "npm run start -w @repo/web",
     "start:api": "npm run start -w @repo/api",
     "preview": "npm run build -w @repo/web && NODE_ENV=production PORT=3000 node apps/api/src/index.js"

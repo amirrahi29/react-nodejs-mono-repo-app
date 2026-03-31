@@ -15,18 +15,18 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 640 }}>
-      <h1 style={{ fontSize: 24, margin: '0 0 16px' }}>{getTitle(health)}</h1>
-      <p style={{ margin: '0 0 24px', color: '#52525b' }}>
+    <main className="app-shell">
+      <h1 className="app-title">{getTitle(health)}</h1>
+      <p className="app-subtitle">
         Minimal frontend for backend health verification across environments.
       </p>
 
-      <section style={{ marginBottom: 24 }}>
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>API Health</div>
-        <pre style={{ margin: 0, padding: 16, background: '#f4f4f5', borderRadius: 8, fontSize: 13 }}>
+      <section className="health-card">
+        <div className="health-title">API Health</div>
+        <pre className="health-payload">
           {health ? JSON.stringify(health, null, 2) : '…'}
         </pre>
       </section>
-    </div>
+    </main>
   );
 }
