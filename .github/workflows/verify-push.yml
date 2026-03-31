@@ -1,0 +1,18 @@
+# Runs on EVERY branch push. If this never appears in Actions after a push, the problem is
+# not deploy-aks.yml (e.g. Actions disabled, push not on GitHub, or wrong remote).
+name: Verify push webhook
+on:
+  push:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Echo ref
+        run: |
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_REF_NAME=$GITHUB_REF_NAME"
+          echo "GITHUB_SHA=$GITHUB_SHA"

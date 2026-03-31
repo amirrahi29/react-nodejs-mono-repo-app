@@ -2,7 +2,7 @@
 # Full CD pipeline (single workflow file): Docker build + push to ACR + Helm upgrade on AKS.
 # Jobs: build-and-push -> deploy | rollback (manual) | diagnostics (if deploy fails)
 # Branch -> namespace + helm/values-<branch>.yaml: main, dev, staging, uat (case-sensitive).
-# Required secret: AZURE_CREDENTIALS. Optional: Key Vault + WI (see scripts/ci/helm-keyvault-args.sh).
+# Required secret: AZURE_CREDENTIALS. Optional KV/WI secrets (no ${{ }} || in YAML — coalesce in shell for older GHES).
 # In Actions UI pick workflow name below - this is your main pipeline (not a smoke test).
 # =============================================================================
 name: "Build, Push & Deploy to AKS"
@@ -133,11 +133,18 @@ jobs:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
           VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME || secrets.KEY_VAULT_USERNAME_SECRET }}
-          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME || secrets.KEY_VAULT_PASSWORD_SECRET }}
+          _KVU_A: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
+          _KVU_B: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
+          _KVP_A: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          _KVP_B: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
           WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
           WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
+          KV_USER_KEY="${_KVU_A}"
+          [ -z "$KV_USER_KEY" ] && KV_USER_KEY="${_KVU_B}"
+          KV_PASS_KEY="${_KVP_A}"
+          [ -z "$KV_PASS_KEY" ] && KV_PASS_KEY="${_KVP_B}"
+          export KV_USER_KEY KV_PASS_KEY
           helm lint "${HELM_CHART_PATH}"
           source scripts/ci/helm-keyvault-args.sh
           helm template "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
@@ -159,12 +166,19 @@ jobs:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
           VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          KV_USER_KEY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME || secrets.KEY_VAULT_USERNAME_SECRET }}
-          KV_PASS_KEY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME || secrets.KEY_VAULT_PASSWORD_SECRET }}
+          _KVU_A: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
+          _KVU_B: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
+          _KVP_A: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
+          _KVP_B: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
           WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
           WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
           set -euo pipefail
+          KV_USER_KEY="${_KVU_A}"
+          [ -z "$KV_USER_KEY" ] && KV_USER_KEY="${_KVU_B}"
+          KV_PASS_KEY="${_KVP_A}"
+          [ -z "$KV_PASS_KEY" ] && KV_PASS_KEY="${_KVP_B}"
+          export KV_USER_KEY KV_PASS_KEY
           source scripts/ci/helm-keyvault-args.sh
           echo "Helm --wait (timeout=${HELM_UPGRADE_WAIT_TIMEOUT}) is quiet until pods are Ready."
           echo "Light snapshots every ~90s (fewer API calls than Helm's own wait)."
