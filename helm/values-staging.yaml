@@ -1,6 +1,4 @@
-# Staging — namespace `staging`. Tag `staging-<sha>`.
-# Optional creds: kubectl create secret generic chat-app-credentials -n staging \
-#   --from-literal=APP_USERNAME=x --from-literal=APP_PASSWORD=y
+# Staging - namespace `staging`. Tag `staging-<sha>`.
 replicaCount: 2
 
 extraEnv:
@@ -24,8 +22,3 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 75
   targetMemoryUtilizationPercentage: ""
-
-credentialsSecret:
-  enabled: true
-  name: chat-app-credentials
-  optional: true

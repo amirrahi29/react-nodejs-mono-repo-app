@@ -1,4 +1,4 @@
-# UAT — namespace `uat`. Tag `uat-<sha>`.
+# UAT - namespace `uat`. Tag `uat-<sha>`.
 replicaCount: 2
 
 extraEnv:
@@ -22,8 +22,3 @@ autoscaling:
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: ""
-
-credentialsSecret:
-  enabled: true
-  name: chat-app-credentials
-  optional: true

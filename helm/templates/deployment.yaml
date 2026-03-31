@@ -25,9 +25,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- if .Values.serviceAccount.name }}
-      serviceAccountName: {{ .Values.serviceAccount.name | quote }}
-      {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -57,24 +54,6 @@ spec:
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
-            {{- if .Values.keyVault.enabled }}
-            - name: AZURE_KEY_VAULT_URL
-              value: {{ .Values.keyVault.vaultUrl | quote }}
-            - name: KEY_VAULT_USERNAME_SECRET
-              value: {{ .Values.keyVault.usernameSecretName | quote }}
-            - name: KEY_VAULT_PASSWORD_SECRET
-              value: {{ .Values.keyVault.passwordSecretName | quote }}
-            {{- if .Values.keyVault.azureClientId }}
-            - name: AZURE_CLIENT_ID
-              value: {{ .Values.keyVault.azureClientId | quote }}
-            {{- end }}
-            {{- end }}
-          {{- if and .Values.credentialsSecret.enabled .Values.credentialsSecret.name }}
-          envFrom:
-            - secretRef:
-                name: {{ .Values.credentialsSecret.name | quote }}
-                optional: {{ .Values.credentialsSecret.optional }}
-          {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

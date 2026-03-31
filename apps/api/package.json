@@ -7,16 +7,15 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "echo \"No tests\" && exit 0"
+    "test": "node --test"
   },
   "dependencies": {
-    "@azure/identity": "^4.13.1",
-    "@azure/keyvault-secrets": "^4.10.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "supertest": "^7.1.1"
   }
 }

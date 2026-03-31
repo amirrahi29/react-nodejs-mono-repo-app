@@ -1,4 +1,4 @@
-# Dev — namespace `dev`. Tag `dev-<sha>`.
+# Dev - namespace `dev`. Tag `dev-<sha>`.
 replicaCount: 1
 
 extraEnv:
@@ -20,8 +20,3 @@ autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 2
-
-credentialsSecret:
-  enabled: true
-  name: chat-app-credentials
-  optional: true
