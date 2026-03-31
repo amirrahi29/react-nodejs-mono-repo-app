@@ -3,15 +3,15 @@
 # Key Vault in Helm/pods only when ALL are set: AZURE_KEY_VAULT_URL + AZURE_WORKLOAD_CLIENT_ID +
 # AKS_WORKLOAD_SERVICE_ACCOUNT. Vault entry *names* (not values): KEY_VAULT_USERNAME_SECRET_NAME or
 # KEY_VAULT_USERNAME_SECRET, same for password. URL alone → warning + deploy without KV (avoids crashing pods).
-name: Build, Push & Deploy to AKS
+name: "Build, Push & Deploy to AKS"
 
-# Easier to spot branch in the Actions list (default title is only the commit message).
-run-name: ${{ github.ref_name }} · ${{ github.event_name }}
+# ASCII only (some clients choke on unicode in run-name).
+run-name: "${{ github.ref_name }} | ${{ github.event_name }}"
 
 # Push triggers: exact branch names (case-sensitive). Pushes to e.g. feature/* or main (if not listed) → no run.
 # Concurrency: a newer push to the same branch cancels the previous run — check the latest run, not a "Cancelled" one.
-# If nothing runs: Settings → Actions enabled; ensure THIS workflow file exists on the branch you pushed (GitHub uses that commit’s copy).
-# Manual: Actions → "Build, Push & Deploy to AKS" → Run workflow.
+# If nothing runs: Settings - Actions enabled; workflow file must exist on the pushed branch at that commit.
+# Manual: Actions tab - Run workflow.
 on:
   push:
     branches:
@@ -32,9 +32,10 @@ on:
         required: false
         default: ''
 
-# Minimal token: avoids org policies that block workflows requesting broad scopes. ACR push uses Azure CLI + secrets, not GITHUB_TOKEN.
+# contents: checkout; actions: write required for upload-artifact (deploy job).
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: cd-aks-${{ github.repository }}-${{ github.ref_name }}
