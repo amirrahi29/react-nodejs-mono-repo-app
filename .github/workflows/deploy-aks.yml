@@ -94,13 +94,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: AKS and Helm setup
-        uses: ./.github/actions/aks-helm-setup
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
         with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
-          resource_group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster_name: ${{ env.AKS_CLUSTER_NAME }}
-          helm_version: ${{ env.HELM_VERSION }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: AKS kubeconfig
+        uses: azure/aks-set-context@v5
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - name: Helm CLI
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
 
       - name: Helm lint and template
         env:
@@ -154,13 +165,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: AKS and Helm setup
-        uses: ./.github/actions/aks-helm-setup
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
         with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
-          resource_group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster_name: ${{ env.AKS_CLUSTER_NAME }}
-          helm_version: ${{ env.HELM_VERSION }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: AKS kubeconfig
+        uses: azure/aks-set-context@v5
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - name: Helm CLI
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
 
       - name: Helm rollback
         env:
@@ -187,13 +209,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: AKS and Helm setup
-        uses: ./.github/actions/aks-helm-setup
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
         with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
-          resource_group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster_name: ${{ env.AKS_CLUSTER_NAME }}
-          helm_version: ${{ env.HELM_VERSION }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: AKS kubeconfig
+        uses: azure/aks-set-context@v5
+        with:
+          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+
+      - name: Helm CLI
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
 
       - name: Collect diagnostics
         env:
