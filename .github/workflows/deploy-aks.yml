@@ -1,4 +1,4 @@
-# Multi-env: branch = namespace = values file (dev / staging / uat)
+# Multi-env: branch = namespace = values file (main / dev / staging / uat)
 # Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
 # Key Vault in Helm/pods only when ALL are set: AZURE_KEY_VAULT_URL + AZURE_WORKLOAD_CLIENT_ID +
 # AKS_WORKLOAD_SERVICE_ACCOUNT. Vault entry *names* (not values): KEY_VAULT_USERNAME_SECRET_NAME or
@@ -8,12 +8,14 @@ name: Build, Push & Deploy to AKS
 # Easier to spot branch in the Actions list (default title is only the commit message).
 run-name: ${{ github.ref_name }} · ${{ github.event_name }}
 
-# Push triggers: exact branch names (case-sensitive: "dev" ≠ "Dev"). No match → no run.
-# If nothing runs: Repo Settings → Actions → allow Actions; confirm this file is on the branch you pushed.
-# Manual: Actions → "Build, Push & Deploy to AKS" → Run workflow → choose dev/staging/uat.
+# Push triggers: exact branch names (case-sensitive). Pushes to e.g. feature/* or main (if not listed) → no run.
+# Concurrency: a newer push to the same branch cancels the previous run — check the latest run, not a "Cancelled" one.
+# If nothing runs: Settings → Actions enabled; ensure THIS workflow file exists on the branch you pushed (GitHub uses that commit’s copy).
+# Manual: Actions → "Build, Push & Deploy to AKS" → Run workflow.
 on:
   push:
     branches:
+      - main
       - dev
       - staging
       - uat
