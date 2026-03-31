@@ -16,6 +16,7 @@ export default function App() {
 
   return (
     <main className="app-shell">
+      <h1>frontend staging app</h1>
       <h1 className="app-title">{getTitle(health)}</h1>
       <p className="app-subtitle">
         Minimal frontend for backend health verification across environments.
