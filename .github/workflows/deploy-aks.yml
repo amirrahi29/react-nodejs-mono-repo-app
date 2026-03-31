@@ -1,22 +1,17 @@
 # =============================================================================
 # Full CD pipeline (single workflow file): Docker build + push to ACR + Helm upgrade on AKS.
 # Jobs: build-and-push -> deploy | rollback (manual) | diagnostics (if deploy fails)
-# Branch -> namespace + helm/values-<branch>.yaml: main, dev, staging, uat (case-sensitive).
+# CD runs only for branches main/dev/staging/uat (any common case). Meta step lowercases for values-<branch>.yaml.
 # Required secret: AZURE_CREDENTIALS. Optional KV/WI secrets (no ${{ }} || in YAML — coalesce in shell for older GHES).
 # In Actions UI pick workflow name below - this is your main pipeline (not a smoke test).
 # =============================================================================
 name: "Build, Push & Deploy to AKS"
 run-name: "${{ github.ref_name }} | ${{ github.event_name }}"
 
-# Push: only the branches listed (e.g. feature/* does not run). Newer push cancels in-progress run on same branch.
+# Push: all branches wake this workflow; build-and-push runs only for main/dev/staging/uat (see job if). Fixes Dev vs dev.
 # Manual: Actions -> this workflow -> Run workflow (deploy or rollback).
 on:
   push:
-    branches:
-      - main
-      - dev
-      - staging
-      - uat
   workflow_dispatch:
     inputs:
       operation:
@@ -52,8 +47,9 @@ env:
 
 jobs:
   build-and-push:
-    # Do not read github.event.inputs on push (use explicit event check).
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'deploy')
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'deploy') ||
+      (github.event_name == 'push' && contains(fromJSON('["main","dev","staging","uat","Main","Dev","Staging","UAT","MAIN","DEV"]'), github.ref_name))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
@@ -68,6 +64,7 @@ jobs:
         id: meta
         run: |
           BRANCH=${GITHUB_REF#refs/heads/}
+          BRANCH=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]')
           SHORT_SHA=$(git rev-parse --short HEAD)
           TAG="${BRANCH}-${SHORT_SHA}"
           echo "IMAGE_TAG=${TAG}" >> "$GITHUB_ENV"
@@ -241,9 +238,10 @@ jobs:
 
       - name: Helm rollback
         env:
-          NS: ${{ github.ref_name }}
           REV: ${{ github.event.inputs.helm_revision }}
         run: |
+          NS="${GITHUB_REF#refs/heads/}"
+          NS=$(echo "$NS" | tr '[:upper:]' '[:lower:]')
           if [ -z "$REV" ]; then
             helm rollback "${HELM_RELEASE}" --namespace "${NS}" --wait --timeout 5m
           else
@@ -252,9 +250,9 @@ jobs:
           kubectl rollout status "deployment/${HELM_RELEASE}" -n "${NS}" --timeout=5m
 
       - name: Summary
-        env:
-          NS: ${{ github.ref_name }}
         run: |
+          NS="${GITHUB_REF#refs/heads/}"
+          NS=$(echo "$NS" | tr '[:upper:]' '[:lower:]')
           echo "## Helm rollback" >> "$GITHUB_STEP_SUMMARY"
           helm history "${HELM_RELEASE}" -n "${NS}" --max 5 >> "$GITHUB_STEP_SUMMARY"
 
