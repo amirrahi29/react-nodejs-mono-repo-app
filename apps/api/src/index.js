@@ -37,7 +37,7 @@ api.get("/secret", (_req, res) => {
   try {
     res.json(getAppSecrets());
   } catch (e) {
-    res.status(503).json({ error: e.message });
+    res.status(503).json({ error: e.message });  
   }
 });
 

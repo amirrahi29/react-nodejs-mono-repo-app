@@ -38,6 +38,8 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Helm --wait budget (must match deploy job timeout-minutes). If Actions still shows 8m, this file was not pushed to the repo running the workflow.
+  HELM_UPGRADE_WAIT_TIMEOUT: 30m
   ACR_NAME: chatregistryapp
   IMAGE_NAME: chat-app
   AKS_CLUSTER_NAME: ChatAppCluster
@@ -99,8 +101,8 @@ jobs:
     needs: build-and-push
     if: always() && needs.build-and-push.result == 'success'
     runs-on: ubuntu-latest
-    # Must exceed helm --wait --timeout (AKS API throttling can need headroom).
-    timeout-minutes: 40
+    # GitHub kills the job if exceeded; must stay above helm --wait + login/lint/upload margin.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -154,6 +156,21 @@ jobs:
         run: |
           set -euo pipefail
           source scripts/ci/helm-keyvault-args.sh
+          echo "Helm --wait (timeout=${HELM_UPGRADE_WAIT_TIMEOUT}) is quiet until pods are Ready."
+          echo "Light snapshots every ~90s (fewer API calls than Helm's own wait)."
+          (
+            sleep 45
+            while true; do
+              echo "::group::Cluster snapshot $(date -u +%H:%M:%SZ)"
+              kubectl get pods -n "${NS}" -o wide 2>/dev/null || true
+              kubectl get events -n "${NS}" --sort-by=.lastTimestamp 2>/dev/null | tail -8 || true
+              echo "::endgroup::"
+              sleep 90
+            done
+          ) &
+          HB_PID=$!
+          cleanup() { kill "$HB_PID" 2>/dev/null || true; wait "$HB_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
           helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
             --namespace "${NS}" \
             --create-namespace \
@@ -161,7 +178,7 @@ jobs:
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
             "${HELM_KV_ARGS[@]}" \
-            --wait --timeout 25m --atomic --cleanup-on-fail \
+            --wait --timeout "${HELM_UPGRADE_WAIT_TIMEOUT}" --atomic --cleanup-on-fail \
             --history-max 15
 
       - name: Summary
