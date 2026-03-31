@@ -99,7 +99,8 @@ jobs:
     needs: build-and-push
     if: always() && needs.build-and-push.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Must exceed helm --wait --timeout (AKS API throttling can need headroom).
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
 
@@ -160,13 +161,8 @@ jobs:
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
             "${HELM_KV_ARGS[@]}" \
-            --wait --timeout 8m --atomic --cleanup-on-fail \
+            --wait --timeout 25m --atomic --cleanup-on-fail \
             --history-max 15
-
-      - name: Rollout
-        env:
-          NS: ${{ needs.build-and-push.outputs.namespace }}
-        run: kubectl rollout status "deployment/${HELM_RELEASE}" -n "${NS}" --timeout=5m
 
       - name: Summary
         env:
