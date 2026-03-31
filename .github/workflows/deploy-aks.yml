@@ -28,18 +28,18 @@ on:
         description: Rollback revision (blank = previous)
         type: string
         required: false
-        default: ''
+        default: ""
 
 permissions:
   contents: read
-  actions: write # upload-artifact (rendered manifest + diagnostics)
+  # Required for actions/upload-artifact (Helm render + deploy-failure diagnostics).
+  actions: write
 
 concurrency:
   group: cd-aks-${{ github.repository }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # Helm --wait; deploy job timeout-minutes must stay above this.
   HELM_UPGRADE_WAIT_TIMEOUT: 30m
   ACR_NAME: chatregistryapp
@@ -52,7 +52,8 @@ env:
 
 jobs:
   build-and-push:
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.operation == 'deploy'
+    # Do not read github.event.inputs on push (use explicit event check).
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.operation == 'deploy')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
