@@ -1,16 +1,10 @@
 const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
-const {
-  loadAppSecrets,
-  getAppSecrets,
-  secretDebugInfo,
-  credentialsMode,
-} = require("./keyvault");
 const config = require("./config");
 
 const app = express();
-let secretsReady = false;
+const notFound = { error: "Not found" };
 
 app.disable("x-powered-by");
 if (config.isProd) {
@@ -24,34 +18,12 @@ api.get("/health", (_req, res) => {
     status: "ok",
     env: config.appEnv,
     version: config.buildVersion,
-    credentials: credentialsMode(),
   });
 });
 
 api.get("/ready", (_req, res) => {
-  if (!secretsReady) {
-    return res.status(503).json({ ready: false });
-  }
   res.json({ ready: true });
 });
-
-api.get("/secret-status", (_req, res) => {
-  const info = secretDebugInfo();
-  res.status(info.ready ? 200 : 503).json(info);
-});
-
-if (!config.isProd) {
-  api.get("/secret", (_req, res) => {
-    if (!secretsReady) {
-      return res.status(503).json({ error: "Secrets not ready" });
-    }
-    try {
-      res.json(getAppSecrets());
-    } catch (e) {
-      res.status(503).json({ error: e.message });
-    }
-  });
-}
 
 app.use("/api", api);
 
@@ -59,10 +31,10 @@ if (config.isProd) {
   app.use(express.static(config.webBuildDir));
   app.use((req, res, next) => {
     if (req.path.startsWith("/api")) {
-      return res.status(404).json({ error: "Not found" });
+      return res.status(404).json(notFound);
     }
     if (req.method !== "GET") {
-      return res.status(404).json({ error: "Not found" });
+      return res.status(404).json(notFound);
     }
     res.sendFile(
       path.join(config.webBuildDir, "index.html"),
@@ -92,12 +64,3 @@ function shutdown(signal) {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
-
-loadAppSecrets()
-  .then(() => {
-    secretsReady = true;
-  })
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });

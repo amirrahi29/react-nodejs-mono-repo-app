@@ -46,24 +46,6 @@ podAnnotations: {}
 # Injected as container env (set per env file, e.g. APP_ENV).
 extraEnv: []
 
-# Azure Key Vault (DefaultAzureCredential — use Workload Identity + RBAC on the vault).
-keyVault:
-  enabled: false
-  vaultUrl: ""
-  usernameSecretName: username
-  passwordSecretName: password
-  azureClientId: ""
-
-# Optional: load APP_USERNAME / APP_PASSWORD from an existing K8s secret (when not using Key Vault).
-credentialsSecret:
-  enabled: false
-  name: chat-app-credentials
-  optional: false
-
-# Set when using AKS Workload Identity (service account must exist + federated credential).
-serviceAccount:
-  name: ""
-
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000

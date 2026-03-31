@@ -94,49 +94,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Azure login
-        uses: azure/login@v2
+      - name: AKS and Helm setup
+        uses: ./.github/actions/aks-helm-setup
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: AKS kubeconfig
-        uses: azure/aks-set-context@v5
-        with:
-          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
-
-      - name: Helm CLI
-        uses: azure/setup-helm@v4
-        with:
-          version: ${{ env.HELM_VERSION }}
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+          resource_group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster_name: ${{ env.AKS_CLUSTER_NAME }}
+          helm_version: ${{ env.HELM_VERSION }}
 
       - name: Helm lint and template
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
-          VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          KVU_PRIMARY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
-          KVU_FALLBACK: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
-          KVP_PRIMARY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
-          KVP_FALLBACK: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
-          WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
-          WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
-          KV_USER_KEY="${KVU_PRIMARY}"
-          if [ -z "${KV_USER_KEY}" ]; then KV_USER_KEY="${KVU_FALLBACK}"; fi
-          KV_PASS_KEY="${KVP_PRIMARY}"
-          if [ -z "${KV_PASS_KEY}" ]; then KV_PASS_KEY="${KVP_FALLBACK}"; fi
-          export KV_USER_KEY KV_PASS_KEY
           helm lint "${HELM_CHART_PATH}"
-          source scripts/ci/helm-keyvault-args.sh
           helm template "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
             -f "${HELM_CHART_PATH}/values-${NS}.yaml" \
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
-            "${HELM_KV_ARGS[@]}" \
             > rendered-manifest.yaml
 
       - name: Upload rendered manifest
@@ -150,28 +125,14 @@ jobs:
         env:
           NS: ${{ needs.build-and-push.outputs.namespace }}
           TAG: ${{ needs.build-and-push.outputs.image_tag }}
-          VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
-          KVU_PRIMARY: ${{ secrets.KEY_VAULT_USERNAME_SECRET_NAME }}
-          KVU_FALLBACK: ${{ secrets.KEY_VAULT_USERNAME_SECRET }}
-          KVP_PRIMARY: ${{ secrets.KEY_VAULT_PASSWORD_SECRET_NAME }}
-          KVP_FALLBACK: ${{ secrets.KEY_VAULT_PASSWORD_SECRET }}
-          WI_CLIENT_ID: ${{ secrets.AZURE_WORKLOAD_CLIENT_ID }}
-          WI_SERVICE_ACCOUNT: ${{ secrets.AKS_WORKLOAD_SERVICE_ACCOUNT }}
         run: |
           set -euo pipefail
-          KV_USER_KEY="${KVU_PRIMARY}"
-          if [ -z "${KV_USER_KEY}" ]; then KV_USER_KEY="${KVU_FALLBACK}"; fi
-          KV_PASS_KEY="${KVP_PRIMARY}"
-          if [ -z "${KV_PASS_KEY}" ]; then KV_PASS_KEY="${KVP_FALLBACK}"; fi
-          export KV_USER_KEY KV_PASS_KEY
-          source scripts/ci/helm-keyvault-args.sh
           helm upgrade --install "${HELM_RELEASE}" "${HELM_CHART_PATH}" \
             --namespace "${NS}" \
             --create-namespace \
             -f "${HELM_CHART_PATH}/values-${NS}.yaml" \
             --set "image.repository=${ACR_NAME}.azurecr.io/${IMAGE_NAME}" \
             --set "image.tag=${TAG}" \
-            "${HELM_KV_ARGS[@]}" \
             --wait \
             --timeout "${HELM_UPGRADE_WAIT_TIMEOUT}" \
             --atomic \
@@ -193,24 +154,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Azure login
-        uses: azure/login@v2
+      - name: AKS and Helm setup
+        uses: ./.github/actions/aks-helm-setup
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: AKS kubeconfig
-        uses: azure/aks-set-context@v5
-        with:
-          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
-
-      - name: Helm CLI
-        uses: azure/setup-helm@v4
-        with:
-          version: ${{ env.HELM_VERSION }}
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+          resource_group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster_name: ${{ env.AKS_CLUSTER_NAME }}
+          helm_version: ${{ env.HELM_VERSION }}
 
       - name: Helm rollback
         env:
@@ -237,19 +187,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Azure login
-        uses: azure/login@v2
+      - name: AKS and Helm setup
+        uses: ./.github/actions/aks-helm-setup
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: AKS kubeconfig
-        uses: azure/aks-set-context@v5
-        with:
-          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+          resource_group: ${{ env.AKS_RESOURCE_GROUP }}
+          cluster_name: ${{ env.AKS_CLUSTER_NAME }}
+          helm_version: ${{ env.HELM_VERSION }}
 
       - name: Collect diagnostics
         env:

@@ -1,0 +1,38 @@
+name: AKS Helm Setup
+description: Checkout repo, login to Azure, load AKS context, and install Helm.
+
+inputs:
+  azure_credentials:
+    description: Azure service principal JSON credentials
+    required: true
+  resource_group:
+    description: AKS resource group
+    required: true
+  cluster_name:
+    description: AKS cluster name
+    required: true
+  helm_version:
+    description: Helm version to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Azure login
+      uses: azure/login@v2
+      with:
+        creds: ${{ inputs.azure_credentials }}
+
+    - name: AKS kubeconfig
+      uses: azure/aks-set-context@v5
+      with:
+        resource-group: ${{ inputs.resource_group }}
+        cluster-name: ${{ inputs.cluster_name }}
+
+    - name: Helm CLI
+      uses: azure/setup-helm@v4
+      with:
+        version: ${{ inputs.helm_version }}

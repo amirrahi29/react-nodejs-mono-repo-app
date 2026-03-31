@@ -20,10 +20,3 @@ autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 2
-
-# Optional K8s secret in `dev` (keys APP_USERNAME / APP_PASSWORD or username / password):
-# kubectl create secret generic chat-app-credentials -n dev --from-literal=APP_USERNAME=x --from-literal=APP_PASSWORD=y
-credentialsSecret:
-  enabled: true
-  name: chat-app-credentials
-  optional: true
