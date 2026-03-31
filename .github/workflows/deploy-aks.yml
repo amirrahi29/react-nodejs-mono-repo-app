@@ -1,7 +1,8 @@
 # Multi-env: branch = namespace = values file (dev / staging / uat)
 # Secrets: AZURE_CREDENTIALS. ACR_NAME must match portal login server (e.g. chatregistryapp).
-# Optional Key Vault: AZURE_KEY_VAULT_URL; vault entry *names* via KEY_VAULT_USERNAME_SECRET /
-# KEY_VAULT_PASSWORD_SECRET (or *_SECRET_NAME). WI: AZURE_WORKLOAD_CLIENT_ID, AKS_WORKLOAD_SERVICE_ACCOUNT.
+# Key Vault in Helm/pods only when ALL are set: AZURE_KEY_VAULT_URL + AZURE_WORKLOAD_CLIENT_ID +
+# AKS_WORKLOAD_SERVICE_ACCOUNT. Vault entry *names* (not values): KEY_VAULT_USERNAME_SECRET_NAME or
+# KEY_VAULT_USERNAME_SECRET, same for password. URL alone → warning + deploy without KV (avoids crashing pods).
 name: Build, Push & Deploy to AKS
 
 # Easier to spot branch in the Actions list (default title is only the commit message).
