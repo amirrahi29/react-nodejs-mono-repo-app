@@ -24,6 +24,10 @@ function createApp(config) {
     res.json({ ready: true });
   });
 
+  api.get("/test", (_req, res) => {
+    res.json({ msg: "dev backend app" });
+  });
+
   app.use("/api", api);
 
   if (config.isProd) {
