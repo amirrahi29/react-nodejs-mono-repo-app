@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { formatFrontendTitle } from '@repo/env';
 import { fetchHealth, fetchSecret } from './api';
 
+const showDevCredsUi = process.env.NODE_ENV !== 'production';
+
 export default function App() {
   const [health, setHealth] = useState(null);
   const [creds, setCreds] = useState(null);
@@ -33,50 +35,52 @@ export default function App() {
         </pre>
       </section>
 
-      <section>
-        <button
-          type="button"
-          onClick={loadCreds}
-          disabled={loading}
-          style={{
-            padding: '10px 18px',
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: loading ? 'wait' : 'pointer',
-            borderRadius: 8,
-            border: '1px solid #2563eb',
-            background: loading ? '#93c5fd' : '#2563eb',
-            color: '#fff',
-          }}
-        >
-          {loading ? 'Loading…' : 'Get credentials'}
-        </button>
-        {err && (
-          <p style={{ color: '#b91c1c', marginTop: 12 }} role="alert">
-            {err}
-          </p>
-        )}
-        {creds && (
-          <div
+      {showDevCredsUi && (
+        <section>
+          <button
+            type="button"
+            onClick={loadCreds}
+            disabled={loading}
             style={{
-              marginTop: 16,
-              padding: 16,
-              background: '#f4f4f5',
+              padding: '10px 18px',
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: loading ? 'wait' : 'pointer',
               borderRadius: 8,
-              border: '1px solid #e4e4e7',
+              border: '1px solid #2563eb',
+              background: loading ? '#93c5fd' : '#2563eb',
+              color: '#fff',
             }}
           >
-            <div style={{ marginBottom: 10 }}>
-              <span style={{ fontWeight: 600, color: '#52525b' }}>Username</span>
-              <div style={{ marginTop: 4, wordBreak: 'break-all' }}>{creds.username || '(empty)'}</div>
+            {loading ? 'Loading…' : 'Get credentials'}
+          </button>
+          {err && (
+            <p style={{ color: '#b91c1c', marginTop: 12 }} role="alert">
+              {err}
+            </p>
+          )}
+          {creds && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 16,
+                background: '#f4f4f5',
+                borderRadius: 8,
+                border: '1px solid #e4e4e7',
+              }}
+            >
+              <div style={{ marginBottom: 10 }}>
+                <span style={{ fontWeight: 600, color: '#52525b' }}>Username</span>
+                <div style={{ marginTop: 4, wordBreak: 'break-all' }}>{creds.username || '(empty)'}</div>
+              </div>
+              <div>
+                <span style={{ fontWeight: 600, color: '#52525b' }}>Password</span>
+                <div style={{ marginTop: 4, wordBreak: 'break-all' }}>{creds.password || '(empty)'}</div>
+              </div>
             </div>
-            <div>
-              <span style={{ fontWeight: 600, color: '#52525b' }}>Password</span>
-              <div style={{ marginTop: 4, wordBreak: 'break-all' }}>{creds.password || '(empty)'}</div>
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      )}
     </div>
   );
 }

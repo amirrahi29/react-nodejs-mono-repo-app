@@ -30,16 +30,18 @@ api.get("/ready", (_req, res) => {
   res.json({ ready: true });
 });
 
-api.get("/secret", (_req, res) => {
-  if (!secretsReady) {
-    return res.status(503).json({ error: "Secrets not ready" });
-  }
-  try {
-    res.json(getAppSecrets());
-  } catch (e) {
-    res.status(503).json({ error: e.message });  
-  }
-});
+if (!config.isProd) {
+  api.get("/secret", (_req, res) => {
+    if (!secretsReady) {
+      return res.status(503).json({ error: "Secrets not ready" });
+    }
+    try {
+      res.json(getAppSecrets());
+    } catch (e) {
+      res.status(503).json({ error: e.message });
+    }
+  });
+}
 
 app.use("/api", api);
 

@@ -1,6 +1,7 @@
 const {
   DefaultAzureCredential,
   ManagedIdentityCredential,
+  WorkloadIdentityCredential,
 } = require("@azure/identity");
 const { SecretClient } = require("@azure/keyvault-secrets");
 
@@ -15,6 +16,16 @@ function vaultHostFromUrl(vaultUrl) {
 }
 
 function createAzureCredential() {
+  // AKS Entra Workload Identity injects AZURE_FEDERATED_TOKEN_FILE (+ tenant/client id).
+  // ManagedIdentityCredential(IMDS) is wrong for that path; use WorkloadIdentityCredential first.
+  const federatedFile = (process.env.AZURE_FEDERATED_TOKEN_FILE || "").trim();
+  if (federatedFile) {
+    try {
+      return new WorkloadIdentityCredential();
+    } catch {
+      /* incomplete WI env — fall through */
+    }
+  }
   const clientId = (process.env.AZURE_CLIENT_ID || "").trim();
   if (clientId) {
     return new ManagedIdentityCredential({ clientId });
@@ -79,9 +90,11 @@ async function loadAppSecrets() {
       vaultHost: host,
       usernameSecret: userKey,
       passwordSecret: passKey,
-      identity: (process.env.AZURE_CLIENT_ID || "").trim()
-        ? "managed_identity_client_id"
-        : "default_credential_chain",
+      identity: (process.env.AZURE_FEDERATED_TOKEN_FILE || "").trim()
+        ? "workload_identity"
+        : (process.env.AZURE_CLIENT_ID || "").trim()
+          ? "managed_identity_client_id"
+          : "default_credential_chain",
     })
   );
 
@@ -100,7 +113,7 @@ async function loadAppSecrets() {
       })
     );
     throw new Error(
-      `Key Vault failed (${code}): ${err.message}. Check URL, names (${userKey}, ${passKey}), AZURE_CLIENT_ID + Workload Identity + serviceAccount, and Key Vault Secrets User RBAC.`
+      `Key Vault failed (${code}): ${err.message}. Check URL, secret names (${userKey}, ${passKey}), AKS Workload Identity (AZURE_FEDERATED_TOKEN_FILE, AZURE_TENANT_ID, AZURE_CLIENT_ID), service account + federated credential, and Key Vault Secrets User RBAC.`
     );
   }
 
